@@ -1,6 +1,6 @@
 {
   "name": "japanese-novel-tool",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Obsidian plugin for Japanese novel indentation, ruby/emphasis rendering, and character counting.",
   "main": "main.js",
   "scripts": {
@@ -23,6 +23,6 @@
     "builtin-modules": "^3.3.0",
     "esbuild": "^0.21.5",
     "obsidian": "1.13.0",
-    "typescript": "^5.4.5"
+    "typescript": "^5.9.3"
   }
 }

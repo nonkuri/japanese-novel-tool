@@ -9,15 +9,17 @@ const ANNOTATION_END = "》";
 
 export const NOVEL_RUBY_REGEXP = /(?:(?:[|｜]?(?<body1>[一-龠々仝〆〇ヶ]+?))|(?:[|｜](?<body2>[^|｜]+?)))《(?<ruby>.+?)》/gm;
 export const KAKUYOMU_EMPHASIS_REGEXP = /《《(?<body>.+?)》》/gm;
-const NOVEL_RUBY_AT_START_REGEXP = /^(?:(?:[|｜]?(?<body1>[一-龠々仝〆〇ヶ]+?))|(?:[|｜](?<body2>[^|｜]+?)))《(?<ruby>.+?)》/m;
+const NOVEL_RUBY_STICKY_REGEXP = /(?:(?:[|｜]?(?<body1>[一-龠々仝〆〇ヶ]+?))|(?:[|｜](?<body2>[^|｜]+?)))《(?<ruby>.+?)》/y;
+const RUBY_CANDIDATE_CHAR_REGEXP = /[|｜一-龠々仝〆〇ヶ]/;
 
 export function parseNovelMarkup(input: string, enableKakuyomuEmphasis: boolean): NovelToken[] {
   const tokens: NovelToken[] = [];
-  let buffer = "";
+  let plainStart = 0;
   let index = 0;
 
-  const pushText = (text: string) => {
-    if (text.length === 0) return;
+  const flushPlainText = (end: number) => {
+    if (end <= plainStart) return;
+    const text = input.slice(plainStart, end);
     const last = tokens[tokens.length - 1];
     if (last?.type === "text") {
       last.text += text;
@@ -26,42 +28,43 @@ export function parseNovelMarkup(input: string, enableKakuyomuEmphasis: boolean)
     tokens.push({ type: "text", text });
   };
 
-  const flush = () => {
-    pushText(buffer);
-    buffer = "";
-  };
-
   while (index < input.length) {
-    if (enableKakuyomuEmphasis && input.startsWith("《《", index)) {
+    const char = input.charAt(index);
+
+    if (enableKakuyomuEmphasis && char === ANNOTATION_START && input.startsWith("《《", index)) {
       const end = input.indexOf("》》", index + 2);
       if (end !== -1) {
-        flush();
+        flushPlainText(index);
         tokens.push({ type: "emphasis", text: input.slice(index + 2, end) });
         index = end + 2;
+        plainStart = index;
         continue;
       }
     }
 
-    const rest = input.slice(index);
-    const rubyMatch = NOVEL_RUBY_AT_START_REGEXP.exec(rest);
-    if (rubyMatch) {
-      const base = rubyMatch.groups?.body1 || rubyMatch.groups?.body2 || "";
-      const ruby = rubyMatch.groups?.ruby || "";
-      flush();
-      if (isEmphasisAnnotation(ruby)) {
-        tokens.push({ type: "emphasis", text: base });
-      } else {
-        tokens.push({ type: "ruby", base, ruby });
+    // ルビは「｜」「|」または漢字類からしか始まらないので、それ以外の文字では照合しない
+    if (RUBY_CANDIDATE_CHAR_REGEXP.test(char)) {
+      NOVEL_RUBY_STICKY_REGEXP.lastIndex = index;
+      const rubyMatch = NOVEL_RUBY_STICKY_REGEXP.exec(input);
+      if (rubyMatch) {
+        const base = rubyMatch.groups?.body1 || rubyMatch.groups?.body2 || "";
+        const ruby = rubyMatch.groups?.ruby || "";
+        flushPlainText(index);
+        if (isEmphasisAnnotation(ruby)) {
+          tokens.push({ type: "emphasis", text: base });
+        } else {
+          tokens.push({ type: "ruby", base, ruby });
+        }
+        index += rubyMatch[0].length;
+        plainStart = index;
+        continue;
       }
-      index += rubyMatch[0].length;
-      continue;
     }
 
-    buffer += input[index];
     index += 1;
   }
 
-  flush();
+  flushPlainText(input.length);
   return tokens;
 }
 

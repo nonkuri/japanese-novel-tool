@@ -6,9 +6,8 @@ import {
   CountOptions,
   countNovelCharacters,
   formatCount,
-  getHeadingAncestorsAtOffset,
+  getHeadingAncestorsFromHeadings,
   getHeadingSections,
-  HeadingRef,
   HeadingSection
 } from "./count";
 import { KAKUYOMU_EMPHASIS_REGEXP, NOVEL_RUBY_REGEXP, parseNovelMarkup, removeNovelMarkup } from "./parser";
@@ -60,8 +59,10 @@ export default class JapaneseNovelToolPlugin extends Plugin {
       editorCallback: (editor) => removeMarkupFromSelection(editor, this.settings.enableKakuyomuEmphasis)
     });
 
-    this.registerEvent(this.app.workspace.on("file-open", () => void this.refreshDisplays()));
-    this.registerEvent(this.app.workspace.on("active-leaf-change", () => void this.refreshDisplays()));
+    // file-open / active-leaf-change ではステータスバーの更新だけで足りる。
+    // refreshDisplays(updateOptions による全エディタ拡張の再構成)は設定変更時のみ。
+    this.registerEvent(this.app.workspace.on("file-open", () => this.updateCharacterCount()));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.updateCharacterCount()));
     this.registerEvent(this.app.workspace.on("editor-change", () => this.scheduleCharacterCountUpdate()));
     await this.refreshDisplays();
   }
@@ -134,6 +135,7 @@ export default class JapaneseNovelToolPlugin extends Plugin {
     return ViewPlugin.fromClass(class {
       decorations: DecorationSet;
       private countsByLine = new Map<number, number>();
+      private sections: HeadingSection[] = [];
       private view: EditorView;
       private pendingFullRebuild = false;
       private pendingDeltas = new Map<number, number>();
@@ -141,19 +143,11 @@ export default class JapaneseNovelToolPlugin extends Plugin {
 
       constructor(view: EditorView) {
         this.view = view;
-        const result = plugin.buildEditorDecorationsWithCounts(view);
-        this.decorations = result.decorations;
-        this.countsByLine = result.countsByLine;
+        this.rebuildAll(plugin, view);
       }
 
       update(update: ViewUpdate): void {
         this.view = update.view;
-        if (update.focusChanged) {
-          this.clearPending();
-          this.rebuildAll(plugin, update.view);
-          return;
-        }
-
         if (update.docChanged) {
           this.decorations = this.decorations.map(update.changes);
           if (plugin.shouldRebuildAllHeadingDecorations(update)) {
@@ -172,7 +166,10 @@ export default class JapaneseNovelToolPlugin extends Plugin {
                 return;
               }
 
-              const headings = plugin.getEditorHeadingAncestorsAt(update.view, fromB);
+              // デルタ更新パスでは行の増減も見出しの変化もないため、
+              // 前回フル構築時のセクション一覧から祖先見出しを引ける
+              const targetLine = update.view.state.doc.lineAt(fromB).number - 1;
+              const headings = getHeadingAncestorsFromHeadings(this.sections, targetLine);
               for (const heading of headings) {
                 this.pendingDeltas.set(heading.line, (this.pendingDeltas.get(heading.line) ?? 0) + delta);
               }
@@ -226,6 +223,7 @@ export default class JapaneseNovelToolPlugin extends Plugin {
         const result = plugin.buildEditorDecorationsWithCounts(view);
         this.decorations = result.decorations;
         this.countsByLine = result.countsByLine;
+        this.sections = result.sections;
       }
 
       private clearPending(): void {
@@ -393,13 +391,13 @@ export default class JapaneseNovelToolPlugin extends Plugin {
     return /code|image/i.test(nodeName) || /code|image/i.test(parentName);
   }
 
-  private buildEditorDecorations(view: EditorView): DecorationSet {
-    return this.buildEditorDecorationsWithCounts(view).decorations;
-  }
-
-  private buildEditorDecorationsWithCounts(view: EditorView): { decorations: DecorationSet; countsByLine: Map<number, number> } {
+  private buildEditorDecorationsWithCounts(view: EditorView): {
+    decorations: DecorationSet;
+    countsByLine: Map<number, number>;
+    sections: HeadingSection[];
+  } {
     if (!this.settings.showHeadingCounts) {
-      return { decorations: Decoration.none, countsByLine: new Map() };
+      return { decorations: Decoration.none, countsByLine: new Map(), sections: [] };
     }
 
     const sections = getHeadingSections(view.state.doc.toString(), this.getCountOptions());
@@ -412,11 +410,7 @@ export default class JapaneseNovelToolPlugin extends Plugin {
         side: 1
       }).range(line.to);
     });
-    return { decorations: Decoration.set(decorations, true), countsByLine };
-  }
-
-  private getEditorHeadingAncestorsAt(view: EditorView, pos: number): HeadingRef[] {
-    return getHeadingAncestorsAtOffset(view.state.doc.toString(), pos);
+    return { decorations: Decoration.set(decorations, true), countsByLine, sections };
   }
 
   private replaceEditorHeadingDecoration(
@@ -453,8 +447,6 @@ export default class JapaneseNovelToolPlugin extends Plugin {
   }
 
   private shouldRebuildAllHeadingDecorations(update: ViewUpdate): boolean {
-    const source = update.view.state.doc.toString();
-    const oldSource = update.startState.doc.toString();
     let shouldRebuild = false;
     let changeCount = 0;
     update.changes.iterChangedRanges((fromA, _toA, fromB, toB) => {
@@ -468,9 +460,9 @@ export default class JapaneseNovelToolPlugin extends Plugin {
         return;
       }
 
-      const changedText = source.slice(fromB, toB);
+      const changedText = update.view.state.doc.sliceString(fromB, toB);
       const line = update.view.state.doc.lineAt(fromB);
-      const oldLine = update.startState.doc.lineAt(Math.min(fromA, Math.max(0, oldSource.length)));
+      const oldLine = update.startState.doc.lineAt(fromA);
       shouldRebuild = /^\s{0,3}#{1,6}\s/.test(oldLine.text)
         || /^#{1,6}\s/.test(line.text)
         || /\n\s{0,3}#{1,6}\s/.test(changedText)

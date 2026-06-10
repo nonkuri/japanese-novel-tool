@@ -72,15 +72,29 @@ export function prepareTextForCount(source: string, options: CountOptions): stri
 export function getHeadingSections(source: string, options: CountOptions): HeadingSection[] {
   const lines = splitLines(source);
   const headings = findHeadings(lines);
+  const endLines = getSectionEndLines(headings, lines.length);
   return headings.map((heading, index) => {
-    const nextHeading = headings.slice(index + 1).find((candidate) => candidate.level <= heading.level);
-    const endLine = nextHeading?.line ?? lines.length;
-    const sectionText = lines.slice(heading.line + 1, endLine).join("\n");
+    const sectionText = lines.slice(heading.line + 1, endLines[index]).join("\n");
     return {
       ...heading,
       count: countNovelCharacters(sectionText, options)
     };
   });
+}
+
+function getSectionEndLines(headings: Heading[], totalLines: number): number[] {
+  const endLines = headings.map(() => totalLines);
+  const stack: Array<{ index: number; level: number }> = [];
+  headings.forEach((heading, index) => {
+    while (stack.length > 0 && stack[stack.length - 1].level >= heading.level) {
+      const open = stack.pop();
+      if (open) {
+        endLines[open.index] = heading.line;
+      }
+    }
+    stack.push({ index, level: heading.level });
+  });
+  return endLines;
 }
 
 export function getHeadingSectionAtOffset(source: string, offset: number, options: CountOptions): HeadingSection | undefined {
@@ -126,7 +140,10 @@ export function getHeadingAncestorsAtOffset(source: string, offset: number): Hea
   const lines = splitLines(source);
   const lineStarts = getLineStarts(source, lines);
   const targetLine = findLineAtOffset(lineStarts, offset);
-  const headings = findHeadings(lines);
+  return getHeadingAncestorsFromHeadings(findHeadings(lines), targetLine);
+}
+
+export function getHeadingAncestorsFromHeadings(headings: readonly HeadingRef[], targetLine: number): HeadingRef[] {
   const ancestors: HeadingRef[] = [];
 
   for (const heading of headings) {
