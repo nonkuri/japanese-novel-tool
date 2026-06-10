@@ -3,6 +3,8 @@ import JapaneseNovelToolPlugin from "./main";
 
 export interface JapaneseNovelToolSettings {
   enableIndentation: boolean;
+  showWhitespaceMarks: boolean;
+  showLineBreakMarks: boolean;
   enableRubyRendering: boolean;
   enableKakuyomuEmphasis: boolean;
   rubySizeRatio: number;
@@ -23,6 +25,8 @@ export interface JapaneseNovelToolSettings {
 
 export const DEFAULT_SETTINGS: JapaneseNovelToolSettings = {
   enableIndentation: true,
+  showWhitespaceMarks: false,
+  showLineBreakMarks: false,
   enableRubyRendering: true,
   enableKakuyomuEmphasis: true,
   rubySizeRatio: 0.5,
@@ -63,6 +67,28 @@ export class JapaneseNovelToolSettingTab extends PluginSettingTab {
         .setValue(this.plugin.settings.enableIndentation)
         .onChange(async (value) => {
           this.plugin.settings.enableIndentation = value;
+          await this.plugin.saveSettingsAndRefresh();
+        }));
+
+    containerEl.createEl("h2", { text: "可視化" });
+
+    new Setting(containerEl)
+      .setName("空白を可視化")
+      .setDesc("エディタで全角スペース・タブにマークを表示します。")
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.showWhitespaceMarks)
+        .onChange(async (value) => {
+          this.plugin.settings.showWhitespaceMarks = value;
+          await this.plugin.saveSettingsAndRefresh();
+        }));
+
+    new Setting(containerEl)
+      .setName("改行を可視化")
+      .setDesc("エディタで行末に改行マーク（↵）を表示します。")
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.showLineBreakMarks)
+        .onChange(async (value) => {
+          this.plugin.settings.showLineBreakMarks = value;
           await this.plugin.saveSettingsAndRefresh();
         }));
 

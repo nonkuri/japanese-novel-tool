@@ -30,6 +30,7 @@ export default class JapaneseNovelToolPlugin extends Plugin {
     this.addSettingTab(new JapaneseNovelToolSettingTab(this.app, this));
     this.registerEditorExtension(this.createHeadingCountExtension());
     this.registerEditorExtension(this.createRubyExtension());
+    this.registerEditorExtension(this.createInvisiblesExtension());
 
     this.registerMarkdownPostProcessor((el, ctx) => {
       if (this.settings.enableRubyRendering) {
@@ -384,6 +385,93 @@ export default class JapaneseNovelToolPlugin extends Plugin {
     return builder.finish();
   }
 
+  private createInvisiblesExtension() {
+    const plugin = this;
+    return ViewPlugin.fromClass(class {
+      decorations: DecorationSet;
+      private builtWithWhitespace: boolean;
+      private builtWithLineBreaks: boolean;
+
+      constructor(view: EditorView) {
+        this.decorations = plugin.buildInvisibleDecorations(view);
+        this.builtWithWhitespace = plugin.settings.showWhitespaceMarks;
+        this.builtWithLineBreaks = plugin.settings.showLineBreakMarks;
+      }
+
+      update(update: ViewUpdate): void {
+        // 設定トグルは docChanged を伴わないため、前回構築時の設定と
+        // 比較して変化を検知する(update はあらゆるトランザクションで呼ばれる)
+        const settingsChanged = this.builtWithWhitespace !== plugin.settings.showWhitespaceMarks
+          || this.builtWithLineBreaks !== plugin.settings.showLineBreakMarks;
+        if (update.docChanged || update.viewportChanged || settingsChanged) {
+          this.decorations = plugin.buildInvisibleDecorations(update.view);
+          this.builtWithWhitespace = plugin.settings.showWhitespaceMarks;
+          this.builtWithLineBreaks = plugin.settings.showLineBreakMarks;
+        }
+      }
+    }, {
+      decorations: (value) => value.decorations
+    });
+  }
+
+  private buildInvisibleDecorations(view: EditorView): DecorationSet {
+    const showWhitespace = this.settings.showWhitespaceMarks;
+    const showLineBreaks = this.settings.showLineBreakMarks;
+    if (!showWhitespace && !showLineBreaks) {
+      return Decoration.none;
+    }
+
+    const builder = new RangeSetBuilder<Decoration>();
+    const lastLineNumber = view.state.doc.lines;
+    let lastLine = -1;
+
+    for (const visibleRange of view.visibleRanges) {
+      for (let pos = visibleRange.from; pos <= visibleRange.to;) {
+        const line = view.state.doc.lineAt(pos);
+        if (line.number === lastLine) {
+          pos = line.to + 1;
+          continue;
+        }
+        lastLine = line.number;
+
+        if (showWhitespace) {
+          // ルビ表示の <ruby> マークと空白マークが重なると要素が分割され、
+          // ルビが本文の一部にしか掛からなくなるため、ルビ記法の範囲内は除外する
+          let excludedRanges: Array<{ from: number; to: number }> | null = null;
+          if (this.settings.enableRubyRendering && line.text.includes("《")) {
+            excludedRanges = [];
+            NOVEL_RUBY_REGEXP.lastIndex = 0;
+            let rubyMatch: RegExpExecArray | null;
+            while ((rubyMatch = NOVEL_RUBY_REGEXP.exec(line.text)) !== null) {
+              excludedRanges.push({ from: rubyMatch.index, to: rubyMatch.index + rubyMatch[0].length });
+            }
+          }
+
+          WHITESPACE_MARK_REGEXP.lastIndex = 0;
+          let match: RegExpExecArray | null;
+          while ((match = WHITESPACE_MARK_REGEXP.exec(line.text)) !== null) {
+            const indexInLine = match.index;
+            if (excludedRanges?.some((range) => indexInLine >= range.from && indexInLine < range.to)) {
+              continue;
+            }
+            const from = line.from + indexInLine;
+            const className = match[0] === "　" ? "jnt-ws-full" : "jnt-ws-tab";
+            builder.add(from, from + 1, Decoration.mark({ class: className }));
+          }
+        }
+
+        if (showLineBreaks && line.number < lastLineNumber) {
+          // side: 2 で見出しカウントバッジ(side: 1)より後ろに表示する
+          builder.add(line.to, line.to, Decoration.widget({ widget: LINE_BREAK_WIDGET, side: 2 }));
+        }
+
+        pos = line.to + 1;
+      }
+    }
+
+    return builder.finish();
+  }
+
   private isExcludedSyntax(view: EditorView, pos: number): boolean {
     const node = syntaxTree(view.state).resolve(pos);
     const nodeName = node.name;
@@ -544,6 +632,27 @@ export default class JapaneseNovelToolPlugin extends Plugin {
     };
   }
 }
+
+const WHITESPACE_MARK_REGEXP = /[\t　]/g;
+
+class LineBreakWidget extends WidgetType {
+  toDOM(): HTMLElement {
+    const element = document.createElement("span");
+    element.className = "jnt-line-break-mark";
+    element.textContent = "↵";
+    return element;
+  }
+
+  eq(): boolean {
+    return true;
+  }
+
+  ignoreEvent(): boolean {
+    return true;
+  }
+}
+
+const LINE_BREAK_WIDGET = new LineBreakWidget();
 
 class HeadingCountWidget extends WidgetType {
   constructor(private readonly count: number) {

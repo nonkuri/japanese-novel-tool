@@ -40,6 +40,35 @@ div.cm-line:not(.HyperMD-list-line) {
   margin-inline-start: 0.5em;
 }
 
+.jnt-ws-full,
+.jnt-ws-tab {
+  position: relative;
+}
+
+.jnt-ws-full::before,
+.jnt-ws-tab::before {
+  position: absolute;
+  inset: 0;
+  color: var(--text-faint);
+  pointer-events: none;
+  text-align: center;
+}
+
+.jnt-ws-full::before {
+  content: "□";
+}
+
+.jnt-ws-tab::before {
+  content: "→";
+  text-align: left;
+}
+
+.jnt-line-break-mark {
+  color: var(--text-faint);
+  font-size: 0.85em;
+  user-select: none;
+}
+
 .jnt-settings h2 {
   margin-top: 1.5em;
   padding-bottom: 0.25em;

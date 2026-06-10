@@ -262,6 +262,8 @@ function splitLines(source) {
 var import_obsidian = require("obsidian");
 var DEFAULT_SETTINGS = {
   enableIndentation: true,
+  showWhitespaceMarks: false,
+  showLineBreakMarks: false,
   enableRubyRendering: true,
   enableKakuyomuEmphasis: true,
   rubySizeRatio: 0.5,
@@ -291,6 +293,15 @@ var JapaneseNovelToolSettingTab = class extends import_obsidian.PluginSettingTab
     containerEl.createEl("h2", { text: "\u5B57\u4E0B\u3052" });
     new import_obsidian.Setting(containerEl).setName("\u65E5\u672C\u8A9E\u306E\u5B57\u4E0B\u3052\u3092\u8868\u793A").setDesc("\u884C\u982D\u306E\u5168\u89D2\u30B9\u30DA\u30FC\u30B9\u3092Reading view\u3067\u5B57\u4E0B\u3052\u3068\u3057\u3066\u8868\u793A\u3057\u307E\u3059\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableIndentation).onChange(async (value) => {
       this.plugin.settings.enableIndentation = value;
+      await this.plugin.saveSettingsAndRefresh();
+    }));
+    containerEl.createEl("h2", { text: "\u53EF\u8996\u5316" });
+    new import_obsidian.Setting(containerEl).setName("\u7A7A\u767D\u3092\u53EF\u8996\u5316").setDesc("\u30A8\u30C7\u30A3\u30BF\u3067\u5168\u89D2\u30B9\u30DA\u30FC\u30B9\u30FB\u30BF\u30D6\u306B\u30DE\u30FC\u30AF\u3092\u8868\u793A\u3057\u307E\u3059\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.showWhitespaceMarks).onChange(async (value) => {
+      this.plugin.settings.showWhitespaceMarks = value;
+      await this.plugin.saveSettingsAndRefresh();
+    }));
+    new import_obsidian.Setting(containerEl).setName("\u6539\u884C\u3092\u53EF\u8996\u5316").setDesc("\u30A8\u30C7\u30A3\u30BF\u3067\u884C\u672B\u306B\u6539\u884C\u30DE\u30FC\u30AF\uFF08\u21B5\uFF09\u3092\u8868\u793A\u3057\u307E\u3059\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.showLineBreakMarks).onChange(async (value) => {
+      this.plugin.settings.showLineBreakMarks = value;
       await this.plugin.saveSettingsAndRefresh();
     }));
     containerEl.createEl("h2", { text: "\u30EB\u30D3" });
@@ -371,6 +382,7 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
     this.addSettingTab(new JapaneseNovelToolSettingTab(this.app, this));
     this.registerEditorExtension(this.createHeadingCountExtension());
     this.registerEditorExtension(this.createRubyExtension());
+    this.registerEditorExtension(this.createInvisiblesExtension());
     this.registerMarkdownPostProcessor((el, ctx) => {
       var _a;
       if (this.settings.enableRubyRendering) {
@@ -665,6 +677,73 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
     }
     return builder.finish();
   }
+  createInvisiblesExtension() {
+    const plugin = this;
+    return import_view.ViewPlugin.fromClass(class {
+      constructor(view) {
+        this.decorations = plugin.buildInvisibleDecorations(view);
+        this.builtWithWhitespace = plugin.settings.showWhitespaceMarks;
+        this.builtWithLineBreaks = plugin.settings.showLineBreakMarks;
+      }
+      update(update) {
+        const settingsChanged = this.builtWithWhitespace !== plugin.settings.showWhitespaceMarks || this.builtWithLineBreaks !== plugin.settings.showLineBreakMarks;
+        if (update.docChanged || update.viewportChanged || settingsChanged) {
+          this.decorations = plugin.buildInvisibleDecorations(update.view);
+          this.builtWithWhitespace = plugin.settings.showWhitespaceMarks;
+          this.builtWithLineBreaks = plugin.settings.showLineBreakMarks;
+        }
+      }
+    }, {
+      decorations: (value) => value.decorations
+    });
+  }
+  buildInvisibleDecorations(view) {
+    const showWhitespace = this.settings.showWhitespaceMarks;
+    const showLineBreaks = this.settings.showLineBreakMarks;
+    if (!showWhitespace && !showLineBreaks) {
+      return import_view.Decoration.none;
+    }
+    const builder = new import_state.RangeSetBuilder();
+    const lastLineNumber = view.state.doc.lines;
+    let lastLine = -1;
+    for (const visibleRange of view.visibleRanges) {
+      for (let pos = visibleRange.from; pos <= visibleRange.to; ) {
+        const line = view.state.doc.lineAt(pos);
+        if (line.number === lastLine) {
+          pos = line.to + 1;
+          continue;
+        }
+        lastLine = line.number;
+        if (showWhitespace) {
+          let excludedRanges = null;
+          if (this.settings.enableRubyRendering && line.text.includes("\u300A")) {
+            excludedRanges = [];
+            NOVEL_RUBY_REGEXP.lastIndex = 0;
+            let rubyMatch;
+            while ((rubyMatch = NOVEL_RUBY_REGEXP.exec(line.text)) !== null) {
+              excludedRanges.push({ from: rubyMatch.index, to: rubyMatch.index + rubyMatch[0].length });
+            }
+          }
+          WHITESPACE_MARK_REGEXP.lastIndex = 0;
+          let match;
+          while ((match = WHITESPACE_MARK_REGEXP.exec(line.text)) !== null) {
+            const indexInLine = match.index;
+            if (excludedRanges == null ? void 0 : excludedRanges.some((range) => indexInLine >= range.from && indexInLine < range.to)) {
+              continue;
+            }
+            const from = line.from + indexInLine;
+            const className = match[0] === "\u3000" ? "jnt-ws-full" : "jnt-ws-tab";
+            builder.add(from, from + 1, import_view.Decoration.mark({ class: className }));
+          }
+        }
+        if (showLineBreaks && line.number < lastLineNumber) {
+          builder.add(line.to, line.to, import_view.Decoration.widget({ widget: LINE_BREAK_WIDGET, side: 2 }));
+        }
+        pos = line.to + 1;
+      }
+    }
+    return builder.finish();
+  }
   isExcludedSyntax(view, pos) {
     var _a, _b;
     const node = (0, import_language.syntaxTree)(view.state).resolve(pos);
@@ -792,6 +871,22 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
     };
   }
 };
+var WHITESPACE_MARK_REGEXP = /[\t　]/g;
+var LineBreakWidget = class extends import_view.WidgetType {
+  toDOM() {
+    const element = document.createElement("span");
+    element.className = "jnt-line-break-mark";
+    element.textContent = "\u21B5";
+    return element;
+  }
+  eq() {
+    return true;
+  }
+  ignoreEvent() {
+    return true;
+  }
+};
+var LINE_BREAK_WIDGET = new LineBreakWidget();
 var HeadingCountWidget = class extends import_view.WidgetType {
   constructor(count) {
     super();
