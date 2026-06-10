@@ -32,16 +32,19 @@ var import_state = require("@codemirror/state");
 var import_obsidian2 = require("obsidian");
 
 // src/parser.ts
+var ANNOTATION_START = "\u300A";
 var NOVEL_RUBY_REGEXP = /(?:(?:[|｜]?(?<body1>[一-龠々仝〆〇ヶ]+?))|(?:[|｜](?<body2>[^|｜]+?)))《(?<ruby>.+?)》/gm;
 var KAKUYOMU_EMPHASIS_REGEXP = /《《(?<body>.+?)》》/gm;
-var NOVEL_RUBY_AT_START_REGEXP = /^(?:(?:[|｜]?(?<body1>[一-龠々仝〆〇ヶ]+?))|(?:[|｜](?<body2>[^|｜]+?)))《(?<ruby>.+?)》/m;
+var NOVEL_RUBY_STICKY_REGEXP = /(?:(?:[|｜]?(?<body1>[一-龠々仝〆〇ヶ]+?))|(?:[|｜](?<body2>[^|｜]+?)))《(?<ruby>.+?)》/y;
+var RUBY_CANDIDATE_CHAR_REGEXP = /[|｜一-龠々仝〆〇ヶ]/;
 function parseNovelMarkup(input, enableKakuyomuEmphasis) {
   var _a, _b, _c;
   const tokens = [];
-  let buffer = "";
+  let plainStart = 0;
   let index = 0;
-  const pushText = (text) => {
-    if (text.length === 0) return;
+  const flushPlainText = (end) => {
+    if (end <= plainStart) return;
+    const text = input.slice(plainStart, end);
     const last = tokens[tokens.length - 1];
     if ((last == null ? void 0 : last.type) === "text") {
       last.text += text;
@@ -49,38 +52,38 @@ function parseNovelMarkup(input, enableKakuyomuEmphasis) {
     }
     tokens.push({ type: "text", text });
   };
-  const flush = () => {
-    pushText(buffer);
-    buffer = "";
-  };
   while (index < input.length) {
-    if (enableKakuyomuEmphasis && input.startsWith("\u300A\u300A", index)) {
+    const char = input.charAt(index);
+    if (enableKakuyomuEmphasis && char === ANNOTATION_START && input.startsWith("\u300A\u300A", index)) {
       const end = input.indexOf("\u300B\u300B", index + 2);
       if (end !== -1) {
-        flush();
+        flushPlainText(index);
         tokens.push({ type: "emphasis", text: input.slice(index + 2, end) });
         index = end + 2;
+        plainStart = index;
         continue;
       }
     }
-    const rest = input.slice(index);
-    const rubyMatch = NOVEL_RUBY_AT_START_REGEXP.exec(rest);
-    if (rubyMatch) {
-      const base = ((_a = rubyMatch.groups) == null ? void 0 : _a.body1) || ((_b = rubyMatch.groups) == null ? void 0 : _b.body2) || "";
-      const ruby = ((_c = rubyMatch.groups) == null ? void 0 : _c.ruby) || "";
-      flush();
-      if (isEmphasisAnnotation(ruby)) {
-        tokens.push({ type: "emphasis", text: base });
-      } else {
-        tokens.push({ type: "ruby", base, ruby });
+    if (RUBY_CANDIDATE_CHAR_REGEXP.test(char)) {
+      NOVEL_RUBY_STICKY_REGEXP.lastIndex = index;
+      const rubyMatch = NOVEL_RUBY_STICKY_REGEXP.exec(input);
+      if (rubyMatch) {
+        const base = ((_a = rubyMatch.groups) == null ? void 0 : _a.body1) || ((_b = rubyMatch.groups) == null ? void 0 : _b.body2) || "";
+        const ruby = ((_c = rubyMatch.groups) == null ? void 0 : _c.ruby) || "";
+        flushPlainText(index);
+        if (isEmphasisAnnotation(ruby)) {
+          tokens.push({ type: "emphasis", text: base });
+        } else {
+          tokens.push({ type: "ruby", base, ruby });
+        }
+        index += rubyMatch[0].length;
+        plainStart = index;
+        continue;
       }
-      index += rubyMatch[0].length;
-      continue;
     }
-    buffer += input[index];
     index += 1;
   }
-  flush();
+  flushPlainText(input.length);
   return tokens;
 }
 function stripNovelMarkup(input, enableKakuyomuEmphasis) {
@@ -144,22 +147,30 @@ function prepareTextForCount(source, options) {
 function getHeadingSections(source, options) {
   const lines = splitLines(source);
   const headings = findHeadings(lines);
+  const endLines = getSectionEndLines(headings, lines.length);
   return headings.map((heading, index) => {
-    var _a;
-    const nextHeading = headings.slice(index + 1).find((candidate) => candidate.level <= heading.level);
-    const endLine = (_a = nextHeading == null ? void 0 : nextHeading.line) != null ? _a : lines.length;
-    const sectionText = lines.slice(heading.line + 1, endLine).join("\n");
+    const sectionText = lines.slice(heading.line + 1, endLines[index]).join("\n");
     return {
       ...heading,
       count: countNovelCharacters(sectionText, options)
     };
   });
 }
-function getHeadingAncestorsAtOffset(source, offset) {
-  const lines = splitLines(source);
-  const lineStarts = getLineStarts(source, lines);
-  const targetLine = findLineAtOffset(lineStarts, offset);
-  const headings = findHeadings(lines);
+function getSectionEndLines(headings, totalLines) {
+  const endLines = headings.map(() => totalLines);
+  const stack = [];
+  headings.forEach((heading, index) => {
+    while (stack.length > 0 && stack[stack.length - 1].level >= heading.level) {
+      const open = stack.pop();
+      if (open) {
+        endLines[open.index] = heading.line;
+      }
+    }
+    stack.push({ index, level: heading.level });
+  });
+  return endLines;
+}
+function getHeadingAncestorsFromHeadings(headings, targetLine) {
   const ancestors = [];
   for (const heading of headings) {
     if (heading.line > targetLine) {
@@ -245,36 +256,6 @@ function findHeadings(lines) {
 }
 function splitLines(source) {
   return source.split(/\r\n|\r|\n/);
-}
-function getLineStarts(source, lines) {
-  const starts = [];
-  let offset = 0;
-  for (const line of lines) {
-    starts.push(offset);
-    offset += line.length + 1;
-  }
-  if (source.endsWith("\n")) {
-    starts.push(source.length);
-  }
-  return starts;
-}
-function findLineAtOffset(lineStarts, offset) {
-  var _a, _b;
-  let low = 0;
-  let high = lineStarts.length - 1;
-  while (low <= high) {
-    const mid = Math.floor((low + high) / 2);
-    const start = (_a = lineStarts[mid]) != null ? _a : 0;
-    const next = (_b = lineStarts[mid + 1]) != null ? _b : Number.POSITIVE_INFINITY;
-    if (offset < start) {
-      high = mid - 1;
-    } else if (offset >= next) {
-      low = mid + 1;
-    } else {
-      return mid;
-    }
-  }
-  return Math.max(0, lineStarts.length - 1);
 }
 
 // src/settings.ts
@@ -415,8 +396,8 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
       name: "Remove ruby and emphasis marks from selection",
       editorCallback: (editor) => removeMarkupFromSelection(editor, this.settings.enableKakuyomuEmphasis)
     });
-    this.registerEvent(this.app.workspace.on("file-open", () => void this.refreshDisplays()));
-    this.registerEvent(this.app.workspace.on("active-leaf-change", () => void this.refreshDisplays()));
+    this.registerEvent(this.app.workspace.on("file-open", () => this.updateCharacterCount()));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.updateCharacterCount()));
     this.registerEvent(this.app.workspace.on("editor-change", () => this.scheduleCharacterCountUpdate()));
     await this.refreshDisplays();
   }
@@ -477,21 +458,15 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
     return import_view.ViewPlugin.fromClass(class {
       constructor(view) {
         this.countsByLine = /* @__PURE__ */ new Map();
+        this.sections = [];
         this.pendingFullRebuild = false;
         this.pendingDeltas = /* @__PURE__ */ new Map();
         this.timer = null;
         this.view = view;
-        const result = plugin.buildEditorDecorationsWithCounts(view);
-        this.decorations = result.decorations;
-        this.countsByLine = result.countsByLine;
+        this.rebuildAll(plugin, view);
       }
       update(update) {
         this.view = update.view;
-        if (update.focusChanged) {
-          this.clearPending();
-          this.rebuildAll(plugin, update.view);
-          return;
-        }
         if (update.docChanged) {
           this.decorations = this.decorations.map(update.changes);
           if (plugin.shouldRebuildAllHeadingDecorations(update)) {
@@ -509,7 +484,8 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
               if (delta === 0) {
                 return;
               }
-              const headings = plugin.getEditorHeadingAncestorsAt(update.view, fromB);
+              const targetLine = update.view.state.doc.lineAt(fromB).number - 1;
+              const headings = getHeadingAncestorsFromHeadings(this.sections, targetLine);
               for (const heading of headings) {
                 this.pendingDeltas.set(heading.line, ((_a = this.pendingDeltas.get(heading.line)) != null ? _a : 0) + delta);
               }
@@ -557,6 +533,7 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
         const result = plugin2.buildEditorDecorationsWithCounts(view);
         this.decorations = result.decorations;
         this.countsByLine = result.countsByLine;
+        this.sections = result.sections;
       }
       clearPending() {
         if (this.timer !== null) {
@@ -695,12 +672,9 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
     const parentName = (_b = (_a = node.parent) == null ? void 0 : _a.name) != null ? _b : "";
     return /code|image/i.test(nodeName) || /code|image/i.test(parentName);
   }
-  buildEditorDecorations(view) {
-    return this.buildEditorDecorationsWithCounts(view).decorations;
-  }
   buildEditorDecorationsWithCounts(view) {
     if (!this.settings.showHeadingCounts) {
-      return { decorations: import_view.Decoration.none, countsByLine: /* @__PURE__ */ new Map() };
+      return { decorations: import_view.Decoration.none, countsByLine: /* @__PURE__ */ new Map(), sections: [] };
     }
     const sections = getHeadingSections(view.state.doc.toString(), this.getCountOptions());
     const countsByLine = /* @__PURE__ */ new Map();
@@ -712,10 +686,7 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
         side: 1
       }).range(line.to);
     });
-    return { decorations: import_view.Decoration.set(decorations, true), countsByLine };
-  }
-  getEditorHeadingAncestorsAt(view, pos) {
-    return getHeadingAncestorsAtOffset(view.state.doc.toString(), pos);
+    return { decorations: import_view.Decoration.set(decorations, true), countsByLine, sections };
   }
   replaceEditorHeadingDecoration(view, decorations, section) {
     const line = view.state.doc.line(section.line + 1);
@@ -742,8 +713,6 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
     return true;
   }
   shouldRebuildAllHeadingDecorations(update) {
-    const source = update.view.state.doc.toString();
-    const oldSource = update.startState.doc.toString();
     let shouldRebuild = false;
     let changeCount = 0;
     update.changes.iterChangedRanges((fromA, _toA, fromB, toB) => {
@@ -755,9 +724,9 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
       if (shouldRebuild) {
         return;
       }
-      const changedText = source.slice(fromB, toB);
+      const changedText = update.view.state.doc.sliceString(fromB, toB);
       const line = update.view.state.doc.lineAt(fromB);
-      const oldLine = update.startState.doc.lineAt(Math.min(fromA, Math.max(0, oldSource.length)));
+      const oldLine = update.startState.doc.lineAt(fromA);
       shouldRebuild = /^\s{0,3}#{1,6}\s/.test(oldLine.text) || /^#{1,6}\s/.test(line.text) || /\n\s{0,3}#{1,6}\s/.test(changedText) || /^[=-]+$/.test(oldLine.text.trim()) || /^[=-]+$/.test(line.text.trim());
     });
     return shouldRebuild;
