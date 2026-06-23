@@ -170,6 +170,33 @@ function getSectionEndLines(headings, totalLines) {
   });
   return endLines;
 }
+function getHeadingSectionRangeAtOffset(source, offset) {
+  var _a, _b;
+  const lines = splitLines(source);
+  const lineStarts = getLineStarts(source, lines);
+  const targetLine = findLineAtOffset(lineStarts, offset);
+  const headings = findHeadings(lines);
+  const ancestors = [];
+  for (let index = 0; index < headings.length; index += 1) {
+    const heading = headings[index];
+    if (heading.line > targetLine) {
+      break;
+    }
+    while (ancestors.length > 0 && ancestors[ancestors.length - 1].heading.level >= heading.level) {
+      ancestors.pop();
+    }
+    ancestors.push({ heading, index });
+  }
+  const current = ancestors[ancestors.length - 1];
+  if (!current) {
+    return void 0;
+  }
+  const nextHeading = headings.slice(current.index + 1).find((candidate) => candidate.level <= current.heading.level);
+  const endLine = (_a = nextHeading == null ? void 0 : nextHeading.line) != null ? _a : lines.length;
+  const isAtx = ATX_HEADING_PATTERN.test((_b = lines[current.heading.line]) != null ? _b : "");
+  const bodyStartLine = current.heading.line + (isAtx ? 1 : 2);
+  return { headingLine: current.heading.line, bodyStartLine, endLine };
+}
 function getHeadingAncestorsFromHeadings(headings, targetLine) {
   const ancestors = [];
   for (const heading of headings) {
@@ -256,6 +283,36 @@ function findHeadings(lines) {
 }
 function splitLines(source) {
   return source.split(/\r\n|\r|\n/);
+}
+function getLineStarts(source, lines) {
+  const starts = [];
+  let offset = 0;
+  for (const line of lines) {
+    starts.push(offset);
+    offset += line.length + 1;
+  }
+  if (source.endsWith("\n")) {
+    starts.push(source.length);
+  }
+  return starts;
+}
+function findLineAtOffset(lineStarts, offset) {
+  var _a, _b;
+  let low = 0;
+  let high = lineStarts.length - 1;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const start = (_a = lineStarts[mid]) != null ? _a : 0;
+    const next = (_b = lineStarts[mid + 1]) != null ? _b : Number.POSITIVE_INFINITY;
+    if (offset < start) {
+      high = mid - 1;
+    } else if (offset >= next) {
+      low = mid + 1;
+    } else {
+      return mid;
+    }
+  }
+  return Math.max(0, lineStarts.length - 1);
 }
 
 // src/settings.ts
@@ -407,6 +464,16 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
       id: "remove-japanese-novel-markup",
       name: "Remove ruby and emphasis marks from selection",
       editorCallback: (editor) => removeMarkupFromSelection(editor, this.settings.enableKakuyomuEmphasis)
+    });
+    this.addCommand({
+      id: "copy-heading-section-with-heading",
+      name: "Copy current section (with heading)",
+      editorCallback: (editor) => copyHeadingSection(editor, true)
+    });
+    this.addCommand({
+      id: "copy-heading-section-without-heading",
+      name: "Copy current section (without heading)",
+      editorCallback: (editor) => copyHeadingSection(editor, false)
     });
     this.registerEvent(this.app.workspace.on("file-open", () => this.updateCharacterCount()));
     this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.updateCharacterCount()));
@@ -1034,4 +1101,24 @@ function removeMarkupFromSelection(editor, enableKakuyomuEmphasis) {
   const selection = editor.getSelection();
   if (selection.length === 0) return;
   editor.replaceSelection(removeNovelMarkup(selection, enableKakuyomuEmphasis));
+}
+function copyHeadingSection(editor, includeHeading) {
+  const source = editor.getValue();
+  const offset = editor.posToOffset(editor.getCursor());
+  const range = getHeadingSectionRangeAtOffset(source, offset);
+  if (!range) {
+    new import_obsidian2.Notice("\u898B\u51FA\u3057\u30BB\u30AF\u30B7\u30E7\u30F3\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093");
+    return;
+  }
+  const lines = source.split(/\r\n|\r|\n/);
+  const startLine = includeHeading ? range.headingLine : range.bodyStartLine;
+  const text = lines.slice(startLine, range.endLine).join("\n").replace(/\n+$/, "");
+  if (text.length === 0) {
+    new import_obsidian2.Notice("\u30B3\u30D4\u30FC\u3059\u308B\u672C\u6587\u304C\u3042\u308A\u307E\u305B\u3093");
+    return;
+  }
+  void navigator.clipboard.writeText(text).then(
+    () => new import_obsidian2.Notice(includeHeading ? "\u30BB\u30AF\u30B7\u30E7\u30F3\u3092\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F(\u898B\u51FA\u3057\u3092\u542B\u3080)" : "\u30BB\u30AF\u30B7\u30E7\u30F3\u3092\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F(\u898B\u51FA\u3057\u3092\u9664\u304F)"),
+    () => new import_obsidian2.Notice("\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u3078\u306E\u30B3\u30D4\u30FC\u306B\u5931\u6557\u3057\u307E\u3057\u305F")
+  );
 }

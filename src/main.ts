@@ -1,12 +1,13 @@
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate, WidgetType } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { RangeSetBuilder } from "@codemirror/state";
-import { Editor, MarkdownPostProcessorContext, MarkdownView, Plugin, TFile } from "obsidian";
+import { Editor, MarkdownPostProcessorContext, MarkdownView, Notice, Plugin, TFile } from "obsidian";
 import {
   CountOptions,
   countNovelCharacters,
   formatCount,
   getHeadingAncestorsFromHeadings,
+  getHeadingSectionRangeAtOffset,
   getHeadingSections,
   HeadingSection
 } from "./count";
@@ -58,6 +59,18 @@ export default class JapaneseNovelToolPlugin extends Plugin {
       id: "remove-japanese-novel-markup",
       name: "Remove ruby and emphasis marks from selection",
       editorCallback: (editor) => removeMarkupFromSelection(editor, this.settings.enableKakuyomuEmphasis)
+    });
+
+    this.addCommand({
+      id: "copy-heading-section-with-heading",
+      name: "Copy current section (with heading)",
+      editorCallback: (editor) => copyHeadingSection(editor, true)
+    });
+
+    this.addCommand({
+      id: "copy-heading-section-without-heading",
+      name: "Copy current section (without heading)",
+      editorCallback: (editor) => copyHeadingSection(editor, false)
     });
 
     // file-open / active-leaf-change ではステータスバーの更新だけで足りる。
@@ -821,4 +834,27 @@ function removeMarkupFromSelection(editor: Editor, enableKakuyomuEmphasis: boole
   const selection = editor.getSelection();
   if (selection.length === 0) return;
   editor.replaceSelection(removeNovelMarkup(selection, enableKakuyomuEmphasis));
+}
+
+function copyHeadingSection(editor: Editor, includeHeading: boolean): void {
+  const source = editor.getValue();
+  const offset = editor.posToOffset(editor.getCursor());
+  const range = getHeadingSectionRangeAtOffset(source, offset);
+  if (!range) {
+    new Notice("見出しセクションが見つかりません");
+    return;
+  }
+
+  const lines = source.split(/\r\n|\r|\n/);
+  const startLine = includeHeading ? range.headingLine : range.bodyStartLine;
+  const text = lines.slice(startLine, range.endLine).join("\n").replace(/\n+$/, "");
+  if (text.length === 0) {
+    new Notice("コピーする本文がありません");
+    return;
+  }
+
+  void navigator.clipboard.writeText(text).then(
+    () => new Notice(includeHeading ? "セクションをコピーしました(見出しを含む)" : "セクションをコピーしました(見出しを除く)"),
+    () => new Notice("クリップボードへのコピーに失敗しました")
+  );
 }

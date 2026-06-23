@@ -136,6 +136,50 @@ export function getHeadingSectionsAtOffset(source: string, offset: number, optio
   });
 }
 
+export interface HeadingSectionRange {
+  /** 見出し行 (0 始まり) */
+  headingLine: number;
+  /** 本文の開始行 (見出しを除いたコピー範囲の先頭、0 始まり) */
+  bodyStartLine: number;
+  /** セクション末尾の次の行 (排他的) */
+  endLine: number;
+}
+
+/**
+ * カーソル位置(offset)が属する最も内側の見出しセクションの行範囲を返す。
+ * 見出しより前(前文)にカーソルがある場合は undefined。
+ */
+export function getHeadingSectionRangeAtOffset(source: string, offset: number): HeadingSectionRange | undefined {
+  const lines = splitLines(source);
+  const lineStarts = getLineStarts(source, lines);
+  const targetLine = findLineAtOffset(lineStarts, offset);
+  const headings = findHeadings(lines);
+
+  const ancestors: Array<{ heading: Heading; index: number }> = [];
+  for (let index = 0; index < headings.length; index += 1) {
+    const heading = headings[index];
+    if (heading.line > targetLine) {
+      break;
+    }
+    while (ancestors.length > 0 && ancestors[ancestors.length - 1].heading.level >= heading.level) {
+      ancestors.pop();
+    }
+    ancestors.push({ heading, index });
+  }
+
+  const current = ancestors[ancestors.length - 1];
+  if (!current) {
+    return undefined;
+  }
+
+  const nextHeading = headings.slice(current.index + 1).find((candidate) => candidate.level <= current.heading.level);
+  const endLine = nextHeading?.line ?? lines.length;
+  // setext 見出し(下線形式)は見出しが 2 行を占めるため本文開始を 1 行ずらす
+  const isAtx = ATX_HEADING_PATTERN.test(lines[current.heading.line] ?? "");
+  const bodyStartLine = current.heading.line + (isAtx ? 1 : 2);
+  return { headingLine: current.heading.line, bodyStartLine, endLine };
+}
+
 export function getHeadingAncestorsAtOffset(source: string, offset: number): HeadingRef[] {
   const lines = splitLines(source);
   const lineStarts = getLineStarts(source, lines);
