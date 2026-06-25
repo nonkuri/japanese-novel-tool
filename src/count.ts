@@ -136,24 +136,39 @@ export function getHeadingSectionsAtOffset(source: string, offset: number, optio
   });
 }
 
+export type HeadingSectionRangeKind = "section" | "preamble" | "document";
+
 export interface HeadingSectionRange {
-  /** 見出し行 (0 始まり) */
+  /** 見出し行 (0 始まり)。section 以外では 0。 */
   headingLine: number;
   /** 本文の開始行 (見出しを除いたコピー範囲の先頭、0 始まり) */
   bodyStartLine: number;
   /** セクション末尾の次の行 (排他的) */
   endLine: number;
+  /**
+   * 対象範囲の種類。
+   * - "section":  カーソルが属する見出しセクション
+   * - "preamble": 見出しはあるがカーソルが最初の見出しより前(前文)
+   * - "document": 見出しが1つもないファイル(全文)
+   */
+  kind: HeadingSectionRangeKind;
 }
 
 /**
- * カーソル位置(offset)が属する最も内側の見出しセクションの行範囲を返す。
- * 見出しより前(前文)にカーソルがある場合は undefined。
+ * カーソル位置(offset)が属するコピー対象範囲の行範囲を返す。
+ * 見出しが1つもないファイルは全文(document)、最初の見出しより前の前文は
+ * 先頭から最初の見出し直前まで(preamble)、それ以外は最も内側の見出し
+ * セクション(section)を返す。
  */
-export function getHeadingSectionRangeAtOffset(source: string, offset: number): HeadingSectionRange | undefined {
+export function getHeadingSectionRangeAtOffset(source: string, offset: number): HeadingSectionRange {
   const lines = splitLines(source);
   const lineStarts = getLineStarts(source, lines);
   const targetLine = findLineAtOffset(lineStarts, offset);
   const headings = findHeadings(lines);
+
+  if (headings.length === 0) {
+    return { headingLine: 0, bodyStartLine: 0, endLine: lines.length, kind: "document" };
+  }
 
   const ancestors: Array<{ heading: Heading; index: number }> = [];
   for (let index = 0; index < headings.length; index += 1) {
@@ -169,7 +184,8 @@ export function getHeadingSectionRangeAtOffset(source: string, offset: number): 
 
   const current = ancestors[ancestors.length - 1];
   if (!current) {
-    return undefined;
+    // カーソルが最初の見出しより前にある: 先頭から最初の見出し直前までが前文
+    return { headingLine: 0, bodyStartLine: 0, endLine: headings[0].line, kind: "preamble" };
   }
 
   const nextHeading = headings.slice(current.index + 1).find((candidate) => candidate.level <= current.heading.level);
@@ -177,7 +193,7 @@ export function getHeadingSectionRangeAtOffset(source: string, offset: number): 
   // setext 見出し(下線形式)は見出しが 2 行を占めるため本文開始を 1 行ずらす
   const isAtx = ATX_HEADING_PATTERN.test(lines[current.heading.line] ?? "");
   const bodyStartLine = current.heading.line + (isAtx ? 1 : 2);
-  return { headingLine: current.heading.line, bodyStartLine, endLine };
+  return { headingLine: current.heading.line, bodyStartLine, endLine, kind: "section" };
 }
 
 export function getHeadingAncestorsAtOffset(source: string, offset: number): HeadingRef[] {

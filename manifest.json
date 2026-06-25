@@ -1,7 +1,7 @@
 {
   "id": "japanese-novel-tool",
   "name": "Japanese Novel Tool",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "minAppVersion": "1.5.0",
   "description": "Japanese novel helpers for indentation, ruby/emphasis marks, and character counting.",
   "author": "nobuh",

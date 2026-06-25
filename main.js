@@ -176,6 +176,9 @@ function getHeadingSectionRangeAtOffset(source, offset) {
   const lineStarts = getLineStarts(source, lines);
   const targetLine = findLineAtOffset(lineStarts, offset);
   const headings = findHeadings(lines);
+  if (headings.length === 0) {
+    return { headingLine: 0, bodyStartLine: 0, endLine: lines.length, kind: "document" };
+  }
   const ancestors = [];
   for (let index = 0; index < headings.length; index += 1) {
     const heading = headings[index];
@@ -189,13 +192,13 @@ function getHeadingSectionRangeAtOffset(source, offset) {
   }
   const current = ancestors[ancestors.length - 1];
   if (!current) {
-    return void 0;
+    return { headingLine: 0, bodyStartLine: 0, endLine: headings[0].line, kind: "preamble" };
   }
   const nextHeading = headings.slice(current.index + 1).find((candidate) => candidate.level <= current.heading.level);
   const endLine = (_a = nextHeading == null ? void 0 : nextHeading.line) != null ? _a : lines.length;
   const isAtx = ATX_HEADING_PATTERN.test((_b = lines[current.heading.line]) != null ? _b : "");
   const bodyStartLine = current.heading.line + (isAtx ? 1 : 2);
-  return { headingLine: current.heading.line, bodyStartLine, endLine };
+  return { headingLine: current.heading.line, bodyStartLine, endLine, kind: "section" };
 }
 function getHeadingAncestorsFromHeadings(headings, targetLine) {
   const ancestors = [];
@@ -1106,19 +1109,16 @@ function copyHeadingSection(editor, includeHeading) {
   const source = editor.getValue();
   const offset = editor.posToOffset(editor.getCursor());
   const range = getHeadingSectionRangeAtOffset(source, offset);
-  if (!range) {
-    new import_obsidian2.Notice("\u898B\u51FA\u3057\u30BB\u30AF\u30B7\u30E7\u30F3\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093");
-    return;
-  }
   const lines = source.split(/\r\n|\r|\n/);
-  const startLine = includeHeading ? range.headingLine : range.bodyStartLine;
+  const startLine = range.kind === "section" && !includeHeading ? range.bodyStartLine : range.headingLine;
   const text = lines.slice(startLine, range.endLine).join("\n").replace(/\n+$/, "");
   if (text.length === 0) {
     new import_obsidian2.Notice("\u30B3\u30D4\u30FC\u3059\u308B\u672C\u6587\u304C\u3042\u308A\u307E\u305B\u3093");
     return;
   }
+  const successMessage = range.kind === "document" ? "\u5168\u6587\u3092\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F(\u898B\u51FA\u3057\u306A\u3057)" : range.kind === "preamble" ? "\u524D\u6587\u3092\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F" : includeHeading ? "\u30BB\u30AF\u30B7\u30E7\u30F3\u3092\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F(\u898B\u51FA\u3057\u3092\u542B\u3080)" : "\u30BB\u30AF\u30B7\u30E7\u30F3\u3092\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F(\u898B\u51FA\u3057\u3092\u9664\u304F)";
   void navigator.clipboard.writeText(text).then(
-    () => new import_obsidian2.Notice(includeHeading ? "\u30BB\u30AF\u30B7\u30E7\u30F3\u3092\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F(\u898B\u51FA\u3057\u3092\u542B\u3080)" : "\u30BB\u30AF\u30B7\u30E7\u30F3\u3092\u30B3\u30D4\u30FC\u3057\u307E\u3057\u305F(\u898B\u51FA\u3057\u3092\u9664\u304F)"),
+    () => new import_obsidian2.Notice(successMessage),
     () => new import_obsidian2.Notice("\u30AF\u30EA\u30C3\u30D7\u30DC\u30FC\u30C9\u3078\u306E\u30B3\u30D4\u30FC\u306B\u5931\u6557\u3057\u307E\u3057\u305F")
   );
 }

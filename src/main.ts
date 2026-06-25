@@ -840,21 +840,25 @@ function copyHeadingSection(editor: Editor, includeHeading: boolean): void {
   const source = editor.getValue();
   const offset = editor.posToOffset(editor.getCursor());
   const range = getHeadingSectionRangeAtOffset(source, offset);
-  if (!range) {
-    new Notice("見出しセクションが見つかりません");
-    return;
-  }
 
   const lines = source.split(/\r\n|\r|\n/);
-  const startLine = includeHeading ? range.headingLine : range.bodyStartLine;
+  // セクション以外(前文・全文)は見出しがないため常に先頭から
+  const startLine = range.kind === "section" && !includeHeading ? range.bodyStartLine : range.headingLine;
   const text = lines.slice(startLine, range.endLine).join("\n").replace(/\n+$/, "");
   if (text.length === 0) {
     new Notice("コピーする本文がありません");
     return;
   }
 
+  const successMessage = range.kind === "document"
+    ? "全文をコピーしました(見出しなし)"
+    : range.kind === "preamble"
+      ? "前文をコピーしました"
+      : includeHeading
+        ? "セクションをコピーしました(見出しを含む)"
+        : "セクションをコピーしました(見出しを除く)";
   void navigator.clipboard.writeText(text).then(
-    () => new Notice(includeHeading ? "セクションをコピーしました(見出しを含む)" : "セクションをコピーしました(見出しを除く)"),
+    () => new Notice(successMessage),
     () => new Notice("クリップボードへのコピーに失敗しました")
   );
 }
