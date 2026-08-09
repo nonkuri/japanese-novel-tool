@@ -63,10 +63,17 @@ div.cm-line:not(.HyperMD-list-line) {
   text-align: left;
 }
 
+/* 改行マークは幅ゼロの箱にしてぶら下げ表示する。
+   通常の文字として扱うと、行が右端まで埋まったときにマークだけが次行へ折り返されるため */
 .jnt-line-break-mark {
+  display: inline-block;
+  width: 0;
+  overflow: visible;
+  white-space: pre;
   color: var(--text-faint);
   font-size: 0.85em;
   user-select: none;
+  pointer-events: none;
 }
 
 .jnt-settings h2 {
