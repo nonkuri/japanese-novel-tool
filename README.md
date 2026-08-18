@@ -1,5 +1,119 @@
 # Japanese Novel Tool
 
+An Obsidian plugin for writing novels in Japanese. It renders Japanese paragraph
+indentation correctly, displays ruby (furigana) and emphasis dots written in the
+Kakuyomu / Aozora Bunko / Narou notations, and counts characters the way Japanese
+prose is usually counted.
+
+**日本語のドキュメントは [こちら](#日本語) にあります。**
+
+## Features
+
+- Correct display of Japanese indentation written with a leading full-width space
+- Optional visualization of whitespace and line breaks in the editor
+- Ruby (furigana) and emphasis dots, rendered in both Reading view and Live Preview
+- Commands to insert and remove ruby and emphasis markup
+- Copy the heading section under the cursor to the clipboard
+- Character counting tuned for Japanese prose, in the status bar and next to headings
+
+## Installation
+
+### Manual installation
+
+1. Create `.obsidian/plugins/japanese-novel-tool/` inside your vault.
+2. Download `main.js`, `manifest.json`, and `styles.css` from the
+   [latest release](https://github.com/nonkuri/japanese-novel-tool/releases/latest)
+   and place them in that folder.
+3. Reload Obsidian, then enable **Japanese Novel Tool** under
+   Settings → Community plugins.
+
+Once the plugin is listed in the community plugin directory, you will also be able
+to install it from Settings → Community plugins → Browse.
+
+## Usage
+
+### Indentation
+
+Japanese paragraphs are indented with a full-width space (`　`) at the start of the
+line. Obsidian's default wrapping misaligns the lines that follow; this plugin
+adjusts the display so the indentation stays consistent in Reading view as well as
+in Live Preview and Source mode.
+
+### Ruby (furigana)
+
+```markdown
+漢字《かんじ》
+｜任意の本文《にんいのほんぶん》
+|半角パイプも使用可能《はんかくぱいぷもしようかのう》
+```
+
+The `漢字《かんじ》` form can be used when the base text consists only of kanji. When
+the base text contains kana or symbols, mark its range explicitly with `｜` or `|`.
+
+### Emphasis dots
+
+Aozora Bunko / Narou style, which is really ruby:
+
+```markdown
+｜重要《﹅﹅》
+```
+
+Kakuyomu style, rendered with `text-emphasis`:
+
+```markdown
+《《重要》》
+```
+
+### Commands
+
+| Command | Description |
+| --- | --- |
+| `Insert ruby` | Wraps the selection as `｜selection《》`. With no selection, inserts `｜《》`. |
+| `Insert emphasis marks` | Adds emphasis markup to the selection, in the format chosen in the settings. |
+| `Remove ruby and emphasis marks from selection` | Strips ruby and emphasis markup from the selection, leaving the base text. |
+| `Copy current section (with heading)` | Copies the heading section the cursor is in, including the heading line, to the clipboard. Nested sub-sections are included. |
+| `Copy current section (without heading)` | The same, but excludes the heading line itself. |
+
+In a file with no headings, both copy commands copy the whole document. If the file
+has headings but the cursor sits before the first one, the text from the beginning
+of the file up to that heading is copied.
+
+### Character count
+
+Characters are counted rather than words. The count is shown in the status bar, and
+optionally next to each heading for the section it introduces. By default whitespace,
+line breaks, ruby and emphasis control characters, Obsidian callouts, and Markdown
+comments are excluded from the count.
+
+## Settings
+
+The settings tab is grouped into four sections:
+
+- **Indentation** — turn the indentation display on or off
+- **Visualization** — show marks for full-width spaces, tabs, and line breaks
+- **Ruby** — enable ruby and emphasis rendering, choose the Kakuyomu emphasis form,
+  set the ruby size ratio, and pick the format and character used when inserting
+  emphasis dots
+- **Character count** — enable the status bar and per-heading counts, set a prefix
+  and suffix, and choose what is excluded from the count
+
+The Japanese section below documents every option with its default value.
+
+## Privacy
+
+This plugin makes no network requests. It reads notes only through the Obsidian API
+in order to count characters and render markup, and it stores nothing but its own
+settings. The two "Copy current section" commands write to the system clipboard when
+you run them; the plugin never reads the clipboard.
+
+## License
+
+[MIT](LICENSE)
+
+---
+
+# 日本語
+
 Obsidianで日本語小説を書くための補助プラグインです。
 
 次の機能をまとめて提供します。
@@ -186,6 +300,10 @@ Obsidianのコマンドパレットから次のコマンドを使えます。
 
 
 ## 変更履歴
+
+### [0.1.7] - 2026-08-18
+
+- READMEに英語のドキュメント（機能概要・インストール・使い方・設定・プライバシー）を追加
 
 ### [0.1.6] - 2026-08-18
 
