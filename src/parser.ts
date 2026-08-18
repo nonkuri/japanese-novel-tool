@@ -3,9 +3,7 @@ export type NovelToken =
   | { type: "ruby"; base: string; ruby: string }
   | { type: "emphasis"; text: string };
 
-const RUBY_START_MARK = "｜";
 const ANNOTATION_START = "《";
-const ANNOTATION_END = "》";
 
 export const NOVEL_RUBY_REGEXP = /(?:(?:[|｜]?(?<body1>[一-龠々仝〆〇ヶ]+?))|(?:[|｜](?<body2>[^|｜]+?)))《(?<ruby>.+?)》/gm;
 export const KAKUYOMU_EMPHASIS_REGEXP = /《《(?<body>.+?)》》/gm;

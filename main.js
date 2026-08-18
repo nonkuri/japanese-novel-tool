@@ -492,7 +492,8 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
     this.clearReadingViewCounts();
   }
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data = await this.loadData();
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data != null ? data : {});
   }
   async saveSettingsAndRefresh() {
     await this.saveData(this.settings);
@@ -857,7 +858,7 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
     if (/[\r\n]/.test(changedText)) {
       return false;
     }
-    if (/[#*_~=`>\[\]()!|｜《》﹅﹆・]/.test(changedText)) {
+    if (/[#*_~=`>[\]()!|｜《》﹅﹆・]/.test(changedText)) {
       return false;
     }
     return true;
@@ -905,9 +906,10 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
       if (!section) {
         continue;
       }
-      const countElement = document.createElement("span");
-      countElement.className = "jnt-heading-count jnt-heading-count-reading";
-      countElement.textContent = formatCount(section.count);
+      const countElement = createSpan({
+        cls: "jnt-heading-count jnt-heading-count-reading",
+        text: formatCount(section.count)
+      });
       heading.appendChild(countElement);
     }
   }
@@ -942,12 +944,10 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
     };
   }
 };
-var WHITESPACE_MARK_REGEXP = /[\t　]/g;
+var WHITESPACE_MARK_REGEXP = /[\t\u3000]/g;
 var LineBreakWidget = class extends import_view.WidgetType {
   toDOM() {
-    const element = document.createElement("span");
-    element.className = "jnt-line-break-mark";
-    element.textContent = "\u21B5";
+    const element = createSpan({ cls: "jnt-line-break-mark", text: "\u21B5" });
     return element;
   }
   eq() {
@@ -964,9 +964,10 @@ var HeadingCountWidget = class extends import_view.WidgetType {
     this.count = count;
   }
   toDOM() {
-    const element = document.createElement("span");
-    element.className = "jnt-heading-count jnt-heading-count-editor-widget";
-    element.textContent = formatCount(this.count);
+    const element = createSpan({
+      cls: "jnt-heading-count jnt-heading-count-editor-widget",
+      text: formatCount(this.count)
+    });
     return element;
   }
   eq(other) {
@@ -989,7 +990,7 @@ function renderNovelMarkup(root, enableKakuyomuEmphasis) {
     nodes.push(walker.currentNode);
   }
   for (const node of nodes) {
-    const fragment = document.createDocumentFragment();
+    const fragment = createFragment();
     const tokens = parseNovelMarkup((_a = node.nodeValue) != null ? _a : "", enableKakuyomuEmphasis);
     let changed = false;
     for (const token of tokens) {
@@ -999,16 +1000,16 @@ function renderNovelMarkup(root, enableKakuyomuEmphasis) {
       }
       changed = true;
       if (token.type === "ruby") {
-        const ruby = document.createElement("ruby");
+        const ruby = createEl("ruby");
         ruby.addClass("jnt-ruby");
         ruby.appendText(token.base);
-        const rt = document.createElement("rt");
+        const rt = createEl("rt");
         rt.appendText(token.ruby);
         ruby.appendChild(rt);
         fragment.appendChild(ruby);
         continue;
       }
-      const span = document.createElement("span");
+      const span = createSpan();
       span.addClass("jnt-emphasis");
       span.appendText(token.text);
       fragment.appendChild(span);

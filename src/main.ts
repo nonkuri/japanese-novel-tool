@@ -91,7 +91,8 @@ export default class JapaneseNovelToolPlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data = await this.loadData() as Partial<JapaneseNovelToolSettings> | null;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data ?? {});
   }
 
   async saveSettingsAndRefresh(): Promise<void> {
@@ -541,7 +542,7 @@ export default class JapaneseNovelToolPlugin extends Plugin {
       return false;
     }
 
-    if (/[#*_~=`>\[\]()!|｜《》﹅﹆・]/.test(changedText)) {
+    if (/[#*_~=`>[\]()!|｜《》﹅﹆・]/.test(changedText)) {
       return false;
     }
 
@@ -602,9 +603,10 @@ export default class JapaneseNovelToolPlugin extends Plugin {
         continue;
       }
 
-      const countElement = document.createElement("span");
-      countElement.className = "jnt-heading-count jnt-heading-count-reading";
-      countElement.textContent = formatCount(section.count);
+      const countElement = createSpan({
+        cls: "jnt-heading-count jnt-heading-count-reading",
+        text: formatCount(section.count)
+      });
       heading.appendChild(countElement);
     }
   }
@@ -647,13 +649,11 @@ export default class JapaneseNovelToolPlugin extends Plugin {
   }
 }
 
-const WHITESPACE_MARK_REGEXP = /[\t　]/g;
+const WHITESPACE_MARK_REGEXP = /[\t\u3000]/g;
 
 class LineBreakWidget extends WidgetType {
   toDOM(): HTMLElement {
-    const element = document.createElement("span");
-    element.className = "jnt-line-break-mark";
-    element.textContent = "↵";
+    const element = createSpan({ cls: "jnt-line-break-mark", text: "↵" });
     return element;
   }
 
@@ -674,9 +674,10 @@ class HeadingCountWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    const element = document.createElement("span");
-    element.className = "jnt-heading-count jnt-heading-count-editor-widget";
-    element.textContent = formatCount(this.count);
+    const element = createSpan({
+      cls: "jnt-heading-count jnt-heading-count-editor-widget",
+      text: formatCount(this.count)
+    });
     return element;
   }
 
@@ -702,7 +703,7 @@ function renderNovelMarkup(root: HTMLElement, enableKakuyomuEmphasis: boolean): 
   }
 
   for (const node of nodes) {
-    const fragment = document.createDocumentFragment();
+    const fragment = createFragment();
     const tokens = parseNovelMarkup(node.nodeValue ?? "", enableKakuyomuEmphasis);
     let changed = false;
 
@@ -714,17 +715,17 @@ function renderNovelMarkup(root: HTMLElement, enableKakuyomuEmphasis: boolean): 
 
       changed = true;
       if (token.type === "ruby") {
-        const ruby = document.createElement("ruby");
+        const ruby = createEl("ruby");
         ruby.addClass("jnt-ruby");
         ruby.appendText(token.base);
-        const rt = document.createElement("rt");
+        const rt = createEl("rt");
         rt.appendText(token.ruby);
         ruby.appendChild(rt);
         fragment.appendChild(ruby);
         continue;
       }
 
-      const span = document.createElement("span");
+      const span = createSpan();
       span.addClass("jnt-emphasis");
       span.appendText(token.text);
       fragment.appendChild(span);
