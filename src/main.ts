@@ -82,6 +82,7 @@ export default class JapaneseNovelToolPlugin extends Plugin {
   }
 
   onunload(): void {
+    document.body.style.removeProperty("--jnt-ruby-size");
     if (this.characterCountTimer !== null) {
       window.clearTimeout(this.characterCountTimer);
       this.characterCountTimer = null;

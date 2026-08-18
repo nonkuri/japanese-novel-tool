@@ -350,12 +350,12 @@ var JapaneseNovelToolSettingTab = class extends import_obsidian.PluginSettingTab
     const { containerEl } = this;
     containerEl.empty();
     containerEl.addClass("jnt-settings");
-    containerEl.createEl("h2", { text: "\u5B57\u4E0B\u3052" });
+    new import_obsidian.Setting(containerEl).setName("\u5B57\u4E0B\u3052").setHeading();
     new import_obsidian.Setting(containerEl).setName("\u65E5\u672C\u8A9E\u306E\u5B57\u4E0B\u3052\u3092\u8868\u793A").setDesc("\u884C\u982D\u306E\u5168\u89D2\u30B9\u30DA\u30FC\u30B9\u3092Reading view\u3067\u5B57\u4E0B\u3052\u3068\u3057\u3066\u8868\u793A\u3057\u307E\u3059\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableIndentation).onChange(async (value) => {
       this.plugin.settings.enableIndentation = value;
       await this.plugin.saveSettingsAndRefresh();
     }));
-    containerEl.createEl("h2", { text: "\u53EF\u8996\u5316" });
+    new import_obsidian.Setting(containerEl).setName("\u53EF\u8996\u5316").setHeading();
     new import_obsidian.Setting(containerEl).setName("\u7A7A\u767D\u3092\u53EF\u8996\u5316").setDesc("\u30A8\u30C7\u30A3\u30BF\u3067\u5168\u89D2\u30B9\u30DA\u30FC\u30B9\u30FB\u30BF\u30D6\u306B\u30DE\u30FC\u30AF\u3092\u8868\u793A\u3057\u307E\u3059\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.showWhitespaceMarks).onChange(async (value) => {
       this.plugin.settings.showWhitespaceMarks = value;
       await this.plugin.saveSettingsAndRefresh();
@@ -364,7 +364,7 @@ var JapaneseNovelToolSettingTab = class extends import_obsidian.PluginSettingTab
       this.plugin.settings.showLineBreakMarks = value;
       await this.plugin.saveSettingsAndRefresh();
     }));
-    containerEl.createEl("h2", { text: "\u30EB\u30D3" });
+    new import_obsidian.Setting(containerEl).setName("\u30EB\u30D3").setHeading();
     new import_obsidian.Setting(containerEl).setName("\u30EB\u30D3\u3068\u508D\u70B9\u3092\u8868\u793A").setDesc("\uFF5C\u672C\u6587\u300A\u30EB\u30D3\u300B\u3001\u672C\u6587\u300A\u30EB\u30D3\u300B\u3001\uFF5C\u672C\u6587\u300A\u30FB\u300B\u3092\u8868\u793A\u7528HTML\u306B\u5909\u63DB\u3057\u307E\u3059\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableRubyRendering).onChange(async (value) => {
       this.plugin.settings.enableRubyRendering = value;
       await this.plugin.saveSettingsAndRefresh();
@@ -388,7 +388,7 @@ var JapaneseNovelToolSettingTab = class extends import_obsidian.PluginSettingTab
       await this.plugin.saveSettingsAndRefresh();
       this.display();
     }));
-    containerEl.createEl("h2", { text: "\u6587\u5B57\u6570\u30AB\u30A6\u30F3\u30C8" });
+    new import_obsidian.Setting(containerEl).setName("\u6587\u5B57\u6570\u30AB\u30A6\u30F3\u30C8").setHeading();
     new import_obsidian.Setting(containerEl).setName("\u6587\u5B57\u6570\u3092\u8868\u793A").setDesc("\u5358\u8A9E\u6570\u3067\u306F\u306A\u304F\u3001\u65E5\u672C\u8A9E\u5C0F\u8AAC\u5411\u3051\u306E\u6587\u5B57\u6570\u3092\u30B9\u30C6\u30FC\u30BF\u30B9\u30D0\u30FC\u306B\u8868\u793A\u3057\u307E\u3059\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableCharacterCount).onChange(async (value) => {
       this.plugin.settings.enableCharacterCount = value;
       await this.plugin.saveSettingsAndRefresh();
@@ -405,7 +405,7 @@ var JapaneseNovelToolSettingTab = class extends import_obsidian.PluginSettingTab
       this.plugin.settings.showHeadingCounts = value;
       await this.plugin.saveSettingsAndRefresh();
     }));
-    containerEl.createEl("h3", { text: "\u30AB\u30A6\u30F3\u30C8\u5BFE\u8C61" });
+    new import_obsidian.Setting(containerEl).setName("\u30AB\u30A6\u30F3\u30C8\u5BFE\u8C61").setHeading();
     this.addCountToggle("\u7A7A\u767D\u3092\u6570\u3048\u306A\u3044", "excludeWhitespaceFromCount");
     this.addCountToggle("\u6539\u884C\u3092\u6570\u3048\u306A\u3044", "excludeNewlinesFromCount");
     this.addCountToggle("\u30EB\u30D3\u3068\u508D\u70B9\u306E\u8A18\u6CD5\u3092\u6570\u3048\u306A\u3044", "excludeRubyFromCount");
@@ -484,6 +484,7 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
     await this.refreshDisplays();
   }
   onunload() {
+    document.body.style.removeProperty("--jnt-ruby-size");
     if (this.characterCountTimer !== null) {
       window.clearTimeout(this.characterCountTimer);
       this.characterCountTimer = null;

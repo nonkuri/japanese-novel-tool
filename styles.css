@@ -75,9 +75,3 @@ div.cm-line:not(.HyperMD-list-line) {
   user-select: none;
   pointer-events: none;
 }
-
-.jnt-settings h2 {
-  margin-top: 1.5em;
-  padding-bottom: 0.25em;
-  border-bottom: 1px solid var(--background-modifier-border);
-}

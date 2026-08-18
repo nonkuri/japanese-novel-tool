@@ -58,7 +58,7 @@ export class JapaneseNovelToolSettingTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.addClass("jnt-settings");
 
-    containerEl.createEl("h2", { text: "字下げ" });
+    new Setting(containerEl).setName("字下げ").setHeading();
 
     new Setting(containerEl)
       .setName("日本語の字下げを表示")
@@ -70,7 +70,7 @@ export class JapaneseNovelToolSettingTab extends PluginSettingTab {
           await this.plugin.saveSettingsAndRefresh();
         }));
 
-    containerEl.createEl("h2", { text: "可視化" });
+    new Setting(containerEl).setName("可視化").setHeading();
 
     new Setting(containerEl)
       .setName("空白を可視化")
@@ -92,7 +92,7 @@ export class JapaneseNovelToolSettingTab extends PluginSettingTab {
           await this.plugin.saveSettingsAndRefresh();
         }));
 
-    containerEl.createEl("h2", { text: "ルビ" });
+    new Setting(containerEl).setName("ルビ").setHeading();
 
     new Setting(containerEl)
       .setName("ルビと傍点を表示")
@@ -152,7 +152,7 @@ export class JapaneseNovelToolSettingTab extends PluginSettingTab {
           this.display();
         }));
 
-    containerEl.createEl("h2", { text: "文字数カウント" });
+    new Setting(containerEl).setName("文字数カウント").setHeading();
 
     new Setting(containerEl)
       .setName("文字数を表示")
@@ -196,7 +196,7 @@ export class JapaneseNovelToolSettingTab extends PluginSettingTab {
           await this.plugin.saveSettingsAndRefresh();
         }));
 
-    containerEl.createEl("h3", { text: "カウント対象" });
+    new Setting(containerEl).setName("カウント対象").setHeading();
 
     this.addCountToggle("空白を数えない", "excludeWhitespaceFromCount");
     this.addCountToggle("改行を数えない", "excludeNewlinesFromCount");
