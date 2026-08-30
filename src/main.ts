@@ -15,8 +15,16 @@ import { KAKUYOMU_EMPHASIS_REGEXP, NOVEL_RUBY_REGEXP, parseNovelMarkup, removeNo
 import {
   DEFAULT_SETTINGS,
   JapaneseNovelToolSettings,
-  JapaneseNovelToolSettingTab
+  JapaneseNovelToolSettingTab,
+  PANE_ACCENT_COLORS
 } from "./settings";
+
+const ACTIVE_PANE_CLASS = "jnt-active-leaf";
+
+function clampWidth(value: number, min: number, max: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
 
 export default class JapaneseNovelToolPlugin extends Plugin {
   settings: JapaneseNovelToolSettings;
@@ -76,18 +84,26 @@ export default class JapaneseNovelToolPlugin extends Plugin {
     // file-open / active-leaf-change ではステータスバーの更新だけで足りる。
     // refreshDisplays(updateOptions による全エディタ拡張の再構成)は設定変更時のみ。
     this.registerEvent(this.app.workspace.on("file-open", () => this.updateCharacterCount()));
-    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.updateCharacterCount()));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => {
+      this.updateCharacterCount();
+      this.updateActivePaneHighlight();
+    }));
+    this.registerEvent(this.app.workspace.on("layout-change", () => this.updateActivePaneHighlight()));
     this.registerEvent(this.app.workspace.on("editor-change", () => this.scheduleCharacterCountUpdate()));
     await this.refreshDisplays();
   }
 
   onunload(): void {
     document.body.style.removeProperty("--jnt-ruby-size");
+    document.body.style.removeProperty("--jnt-pane-accent");
+    document.body.style.removeProperty("--jnt-pane-outline-width");
+    document.body.style.removeProperty("--jnt-pane-bar-width");
     if (this.characterCountTimer !== null) {
       window.clearTimeout(this.characterCountTimer);
       this.characterCountTimer = null;
     }
     this.clearReadingViewCounts();
+    this.clearActivePaneHighlight();
   }
 
   async loadSettings(): Promise<void> {
@@ -106,11 +122,20 @@ export default class JapaneseNovelToolPlugin extends Plugin {
       ? Math.min(1, Math.max(0.1, this.settings.rubySizeRatio))
       : 0.5;
     document.body.style.setProperty("--jnt-ruby-size", `${ratio}em`);
+    const accent = PANE_ACCENT_COLORS[this.settings.activePaneAccentColor] ?? PANE_ACCENT_COLORS.accent;
+    document.body.style.setProperty("--jnt-pane-accent", `var(${accent.variable})`);
+    document.body.style.setProperty(
+      "--jnt-pane-outline-width",
+      `${clampWidth(this.settings.activePaneOutlineWidth, 1, 8, 2)}px`);
+    document.body.style.setProperty(
+      "--jnt-pane-bar-width",
+      `${clampWidth(this.settings.activePaneBarWidth, 1, 16, 4)}px`);
   }
 
   private async refreshDisplays(): Promise<void> {
     this.headingSectionCache.clear();
     this.updateCharacterCount();
+    this.updateActivePaneHighlight();
     this.app.workspace.updateOptions();
     this.app.workspace.trigger("css-change");
   }
@@ -124,6 +149,55 @@ export default class JapaneseNovelToolPlugin extends Plugin {
       this.characterCountTimer = null;
       this.updateCharacterCount();
     }, 1000);
+  }
+
+  /** 分割時にどのペインを編集しているかを示すため、アクティブなリーフにクラスを付ける。 */
+  private updateActivePaneHighlight(): void {
+    const workspace = this.app.workspace;
+    const leaves = workspace.getLeavesOfType("markdown");
+    const visibleCount = leaves.filter((leaf) =>
+      leaf.getRoot() === workspace.rootSplit && leaf.view.containerEl.isShown()).length;
+    const enabled = !this.settings.highlightOnlyWhenSplit || visibleCount >= 2;
+    const activeView = enabled ? this.getActivePaneView() : null;
+
+    document.body.toggleClass(
+      "jnt-highlight-active-pane",
+      enabled && this.settings.highlightActivePane);
+    document.body.toggleClass(
+      "jnt-highlight-pane-bar",
+      this.settings.activePaneHighlightStyle === "bar");
+    document.body.toggleClass(
+      "jnt-highlight-active-line",
+      enabled && this.settings.highlightActiveLine);
+
+    for (const leaf of leaves) {
+      const isActive = leaf.getRoot() === workspace.rootSplit && leaf.view === activeView;
+      leaf.view.containerEl.toggleClass(ACTIVE_PANE_CLASS, isActive);
+    }
+  }
+
+  /**
+   * 強調対象のビューを返す。サイドバーや検索欄にフォーカスが移っても、
+   * 最後に編集していたペインを強調したままにする。
+   */
+  private getActivePaneView(): MarkdownView | null {
+    const workspace = this.app.workspace;
+    const active = workspace.getActiveViewOfType(MarkdownView);
+    if (active && active.leaf.getRoot() === workspace.rootSplit) return active;
+    const lastEditor = workspace.activeEditor;
+    if (lastEditor instanceof MarkdownView && lastEditor.leaf.getRoot() === workspace.rootSplit) {
+      return lastEditor;
+    }
+    return null;
+  }
+
+  private clearActivePaneHighlight(): void {
+    document.body.removeClasses([
+      "jnt-highlight-active-pane",
+      "jnt-highlight-pane-bar",
+      "jnt-highlight-active-line"
+    ]);
+    this.app.workspace.iterateAllLeaves((leaf) => leaf.view.containerEl.removeClass(ACTIVE_PANE_CLASS));
   }
 
   private updateCharacterCount(): void {

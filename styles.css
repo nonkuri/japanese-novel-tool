@@ -75,3 +75,37 @@ div.cm-line:not(.HyperMD-list-line) {
   user-select: none;
   pointer-events: none;
 }
+
+/* アクティブなペインの強調。
+   ペインの枠は view.containerEl（.workspace-leaf-content）に付けるため、
+   Reading view でも同じように効く */
+body.jnt-highlight-active-pane .jnt-active-leaf {
+  position: relative;
+}
+
+body.jnt-highlight-active-pane:not(.jnt-highlight-pane-bar) .jnt-active-leaf {
+  outline: var(--jnt-pane-outline-width, 2px) solid var(--jnt-pane-accent, var(--interactive-accent));
+  outline-offset: calc(-1 * var(--jnt-pane-outline-width, 2px));
+  border-radius: var(--radius-s);
+}
+
+/* 左端のバーは疑似要素で重ねる。
+   inset box-shadow は子要素（.view-content）の背景に塗りつぶされて見えないため */
+body.jnt-highlight-active-pane.jnt-highlight-pane-bar .jnt-active-leaf::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--jnt-pane-bar-width, 4px);
+  background-color: var(--jnt-pane-accent, var(--interactive-accent));
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* カーソル行は CodeMirror がフォーカス中のエディタに付ける .cm-focused を使い、
+   実際に入力を受け取るペインだけを強調する */
+body.jnt-highlight-active-line .cm-editor.cm-focused .cm-line.cm-active,
+body.jnt-highlight-active-line .cm-editor.cm-focused .cm-line.cm-activeLine {
+  background-color: var(--background-modifier-hover);
+  background-color: color-mix(in oklch, var(--jnt-pane-accent, var(--interactive-accent)) 12%, transparent);
+}

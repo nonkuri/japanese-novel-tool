@@ -15,6 +15,7 @@ prose is usually counted.
 - Commands to insert and remove ruby and emphasis markup
 - Copy the heading section under the cursor to the clipboard
 - Character counting tuned for Japanese prose, in the status bar and next to headings
+- Highlighting of the pane you are editing in, so split views stay easy to tell apart
 
 ## Installation
 
@@ -87,13 +88,16 @@ comments are excluded from the count.
 
 ## Settings
 
-The settings tab is grouped into four sections:
+The settings tab is grouped into five sections:
 
 - **Indentation** — turn the indentation display on or off
 - **Visualization** — show marks for full-width spaces, tabs, and line breaks
 - **Ruby** — enable ruby and emphasis rendering, choose the Kakuyomu emphasis form,
   set the ruby size ratio, and pick the format and character used when inserting
   emphasis dots
+- **Active pane** — outline the pane you are editing in, highlight the line the
+  cursor is on, pick the accent color, and optionally limit all of this to split
+  layouts
 - **Character count** — enable the status bar and per-heading counts, set a prefix
   and suffix, and choose what is excluded from the count
 
@@ -124,6 +128,7 @@ Obsidianで日本語小説を書くための補助プラグインです。
 - ルビと傍点の挿入コマンド
 - 見出しセクション単位のクリップボードコピー
 - 日本語小説向けの文字数カウント
+- 編集中のペインの強調（分割表示でどちらを編集しているかを見分けやすくする）
 
 ## インストール
 
@@ -145,6 +150,23 @@ Live Preview / Source modeでは、Obsidian標準の折り返し字下げによ�
 - 全角スペース: `□`
 - タブ: `→`
 - 改行: 行末に `↵`（禁則処理と同様にぶら下げ表示され、マークだけが次の行へ送られることはありません）
+
+### アクティブなペインの強調
+
+エディタを分割しているとき、いま編集しているペインを見分けやすくします。
+
+- ペインの枠線（または左端のバー）をアクセント色で表示します。Live Preview / Source mode / Reading viewのいずれでも表示され、サイドバーや検索欄にフォーカスが移っても、最後に編集していたペインを強調したままにします。
+- キーボード入力を受け取っているエディタで、カーソルのある行の背景を強調できます（既定ではオフ）。
+
+強調色は次から選べます。いずれもObsidianのテーマ変数なので、テーマとライト/ダークの切り替えに追従します。
+
+| 選択肢       | 変数                     | 挙動                                       |
+| --------- | ---------------------- | ---------------------------------------- |
+| アクセント（既定） | `--interactive-accent` | 「設定 → 外観 → アクセントカラー」で選んだ色に追従します。         |
+| リンク色      | `--text-accent`        | 同じくアクセントカラーに追従し、本文中のリンクと同じ色になります。         |
+| 赤/オレンジ/黄/緑/シアン/青/紫/ピンク | `--color-red` など       | 色相は固定で、ライト/ダークで明度が切り替わります。アクセントカラーには追従しません。 |
+
+既定では、表示中のエディタが2つ以上あるときだけ強調します。単一ペインでも常に強調したい場合は「分割しているときだけ強調」をオフにしてください。
 
 ### ルビ
 
@@ -193,7 +215,7 @@ Obsidianのコマンドパレットから次のコマンドを使えます。
 
 ## 設定
 
-設定画面は次の4グループに分かれています。
+設定画面は次の5グループに分かれています。
 
 ### 字下げ
 
@@ -225,6 +247,18 @@ Obsidianのコマンドパレットから次のコマンドを使えます。
 ```markdown
 ｜重要《﹅﹅》
 ```
+
+### アクティブなペイン
+
+| 設定             | 既定値 | 説明                                                              |
+| -------------- | --- | --------------------------------------------------------------- |
+| アクティブなペインを強調   | オン  | 編集対象のペインに枠線またはバーを表示します。                                           |
+| 強調スタイル         | 枠線  | `枠線` はペイン全体を囲み、`左端のバー` は左端だけを細く塗ります。                              |
+| 強調色            | アクセント | 枠線・バー・カーソル行に使う色です。下の一覧から選べます。                                    |
+| 枠線の太さ          | `2`  | 「枠線」スタイルのときの線の太さ（px）です。`1`〜`8` を指定できます。                            |
+| 左端のバーの太さ       | `4`  | 「左端のバー」スタイルのときのバーの太さ（px）です。`1`〜`16` を指定できます。                       |
+| カーソル行を強調       | オフ  | フォーカス中のエディタで、カーソルのある行に背景色を付けます。                                   |
+| 分割しているときだけ強調   | オン  | 表示中のエディタが2つ以上のときだけ、上の強調を有効にします。                                   |
 
 ### 文字数カウント
 
@@ -300,6 +334,13 @@ Obsidianのコマンドパレットから次のコマンドを使えます。
 
 
 ## 変更履歴
+
+### [0.1.9] - 2026-08-30
+
+- 分割表示でどのペインを編集しているか分かるように、アクティブなペインの強調を追加
+  - 強調スタイル（枠線 / 左端のバー）、強調色、太さを設定できます
+  - カーソル行の強調を追加（既定はオフ）
+  - 既定では、表示中のエディタが2つ以上あるときだけ強調します
 
 ### [0.1.8] - 2026-08-18
 

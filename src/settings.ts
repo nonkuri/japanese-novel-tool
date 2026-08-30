@@ -1,6 +1,32 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import JapaneseNovelToolPlugin from "./main";
 
+export type PaneAccentColor =
+  | "accent"
+  | "textAccent"
+  | "red"
+  | "orange"
+  | "yellow"
+  | "green"
+  | "cyan"
+  | "blue"
+  | "purple"
+  | "pink";
+
+/** 強調色として選べるObsidianのテーマ変数。いずれもテーマとライト/ダークに追従する。 */
+export const PANE_ACCENT_COLORS: Record<PaneAccentColor, { label: string; variable: string }> = {
+  accent: { label: "アクセント（既定）", variable: "--interactive-accent" },
+  textAccent: { label: "リンク色", variable: "--text-accent" },
+  red: { label: "赤", variable: "--color-red" },
+  orange: { label: "オレンジ", variable: "--color-orange" },
+  yellow: { label: "黄", variable: "--color-yellow" },
+  green: { label: "緑", variable: "--color-green" },
+  cyan: { label: "シアン", variable: "--color-cyan" },
+  blue: { label: "青", variable: "--color-blue" },
+  purple: { label: "紫", variable: "--color-purple" },
+  pink: { label: "ピンク", variable: "--color-pink" }
+};
+
 export interface JapaneseNovelToolSettings {
   enableIndentation: boolean;
   showWhitespaceMarks: boolean;
@@ -10,6 +36,13 @@ export interface JapaneseNovelToolSettings {
   rubySizeRatio: number;
   emphasisInsertFormat: "kakuyomu" | "aozora";
   emphasisMark: string;
+  highlightActivePane: boolean;
+  activePaneHighlightStyle: "outline" | "bar";
+  activePaneAccentColor: PaneAccentColor;
+  activePaneOutlineWidth: number;
+  activePaneBarWidth: number;
+  highlightOnlyWhenSplit: boolean;
+  highlightActiveLine: boolean;
   enableCharacterCount: boolean;
   showHeadingCounts: boolean;
   countPrefix: string;
@@ -32,6 +65,13 @@ export const DEFAULT_SETTINGS: JapaneseNovelToolSettings = {
   rubySizeRatio: 0.5,
   emphasisInsertFormat: "kakuyomu",
   emphasisMark: "﹅",
+  highlightActivePane: true,
+  activePaneHighlightStyle: "outline",
+  activePaneAccentColor: "accent",
+  activePaneOutlineWidth: 2,
+  activePaneBarWidth: 4,
+  highlightOnlyWhenSplit: true,
+  highlightActiveLine: false,
   enableCharacterCount: true,
   showHeadingCounts: true,
   countPrefix: "",
@@ -150,6 +190,89 @@ export class JapaneseNovelToolSettingTab extends PluginSettingTab {
           this.plugin.settings.emphasisMark = Array.from(value.trim())[0] ?? "﹅";
           await this.plugin.saveSettingsAndRefresh();
           this.display();
+        }));
+
+    new Setting(containerEl).setName("アクティブなペイン").setHeading();
+
+    new Setting(containerEl)
+      .setName("アクティブなペインを強調")
+      .setDesc("編集対象のペインに枠線またはバーを表示します。")
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.highlightActivePane)
+        .onChange(async (value) => {
+          this.plugin.settings.highlightActivePane = value;
+          await this.plugin.saveSettingsAndRefresh();
+        }));
+
+    new Setting(containerEl)
+      .setName("強調スタイル")
+      .setDesc("ペイン全体を囲むか、左端のバーだけにするかを選びます。")
+      .addDropdown((dropdown) => dropdown
+        .addOption("outline", "枠線")
+        .addOption("bar", "左端のバー")
+        .setValue(this.plugin.settings.activePaneHighlightStyle)
+        .onChange(async (value: "outline" | "bar") => {
+          this.plugin.settings.activePaneHighlightStyle = value;
+          await this.plugin.saveSettingsAndRefresh();
+        }));
+
+    new Setting(containerEl)
+      .setName("強調色")
+      .setDesc("いずれもObsidianのテーマ変数です。テーマとライト/ダークに追従します。")
+      .addDropdown((dropdown) => {
+        for (const [value, { label }] of Object.entries(PANE_ACCENT_COLORS)) {
+          dropdown.addOption(value, label);
+        }
+        dropdown
+          .setValue(this.plugin.settings.activePaneAccentColor)
+          .onChange(async (value: PaneAccentColor) => {
+            this.plugin.settings.activePaneAccentColor = value;
+            await this.plugin.saveSettingsAndRefresh();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("枠線の太さ")
+      .setDesc("「枠線」スタイルのときの線の太さ（px）です。")
+      .addSlider((slider) => slider
+        .setLimits(1, 8, 1)
+        .setDynamicTooltip()
+        .setValue(this.plugin.settings.activePaneOutlineWidth)
+        .onChange(async (value) => {
+          this.plugin.settings.activePaneOutlineWidth = value;
+          await this.plugin.saveSettingsAndRefresh();
+        }));
+
+    new Setting(containerEl)
+      .setName("左端のバーの太さ")
+      .setDesc("「左端のバー」スタイルのときのバーの太さ（px）です。")
+      .addSlider((slider) => slider
+        .setLimits(1, 16, 1)
+        .setDynamicTooltip()
+        .setValue(this.plugin.settings.activePaneBarWidth)
+        .onChange(async (value) => {
+          this.plugin.settings.activePaneBarWidth = value;
+          await this.plugin.saveSettingsAndRefresh();
+        }));
+
+    new Setting(containerEl)
+      .setName("カーソル行を強調")
+      .setDesc("フォーカス中のエディタで、カーソルのある行に背景色を付けます。")
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.highlightActiveLine)
+        .onChange(async (value) => {
+          this.plugin.settings.highlightActiveLine = value;
+          await this.plugin.saveSettingsAndRefresh();
+        }));
+
+    new Setting(containerEl)
+      .setName("分割しているときだけ強調")
+      .setDesc("表示中のエディタが2つ以上のときだけ、上の強調を有効にします。")
+      .addToggle((toggle) => toggle
+        .setValue(this.plugin.settings.highlightOnlyWhenSplit)
+        .onChange(async (value) => {
+          this.plugin.settings.highlightOnlyWhenSplit = value;
+          await this.plugin.saveSettingsAndRefresh();
         }));
 
     new Setting(containerEl).setName("文字数カウント").setHeading();

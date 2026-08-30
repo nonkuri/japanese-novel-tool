@@ -320,6 +320,18 @@ function findLineAtOffset(lineStarts, offset) {
 
 // src/settings.ts
 var import_obsidian = require("obsidian");
+var PANE_ACCENT_COLORS = {
+  accent: { label: "\u30A2\u30AF\u30BB\u30F3\u30C8\uFF08\u65E2\u5B9A\uFF09", variable: "--interactive-accent" },
+  textAccent: { label: "\u30EA\u30F3\u30AF\u8272", variable: "--text-accent" },
+  red: { label: "\u8D64", variable: "--color-red" },
+  orange: { label: "\u30AA\u30EC\u30F3\u30B8", variable: "--color-orange" },
+  yellow: { label: "\u9EC4", variable: "--color-yellow" },
+  green: { label: "\u7DD1", variable: "--color-green" },
+  cyan: { label: "\u30B7\u30A2\u30F3", variable: "--color-cyan" },
+  blue: { label: "\u9752", variable: "--color-blue" },
+  purple: { label: "\u7D2B", variable: "--color-purple" },
+  pink: { label: "\u30D4\u30F3\u30AF", variable: "--color-pink" }
+};
 var DEFAULT_SETTINGS = {
   enableIndentation: true,
   showWhitespaceMarks: false,
@@ -329,6 +341,13 @@ var DEFAULT_SETTINGS = {
   rubySizeRatio: 0.5,
   emphasisInsertFormat: "kakuyomu",
   emphasisMark: "\uFE45",
+  highlightActivePane: true,
+  activePaneHighlightStyle: "outline",
+  activePaneAccentColor: "accent",
+  activePaneOutlineWidth: 2,
+  activePaneBarWidth: 4,
+  highlightOnlyWhenSplit: true,
+  highlightActiveLine: false,
   enableCharacterCount: true,
   showHeadingCounts: true,
   countPrefix: "",
@@ -388,6 +407,40 @@ var JapaneseNovelToolSettingTab = class extends import_obsidian.PluginSettingTab
       await this.plugin.saveSettingsAndRefresh();
       this.display();
     }));
+    new import_obsidian.Setting(containerEl).setName("\u30A2\u30AF\u30C6\u30A3\u30D6\u306A\u30DA\u30A4\u30F3").setHeading();
+    new import_obsidian.Setting(containerEl).setName("\u30A2\u30AF\u30C6\u30A3\u30D6\u306A\u30DA\u30A4\u30F3\u3092\u5F37\u8ABF").setDesc("\u7DE8\u96C6\u5BFE\u8C61\u306E\u30DA\u30A4\u30F3\u306B\u67A0\u7DDA\u307E\u305F\u306F\u30D0\u30FC\u3092\u8868\u793A\u3057\u307E\u3059\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.highlightActivePane).onChange(async (value) => {
+      this.plugin.settings.highlightActivePane = value;
+      await this.plugin.saveSettingsAndRefresh();
+    }));
+    new import_obsidian.Setting(containerEl).setName("\u5F37\u8ABF\u30B9\u30BF\u30A4\u30EB").setDesc("\u30DA\u30A4\u30F3\u5168\u4F53\u3092\u56F2\u3080\u304B\u3001\u5DE6\u7AEF\u306E\u30D0\u30FC\u3060\u3051\u306B\u3059\u308B\u304B\u3092\u9078\u3073\u307E\u3059\u3002").addDropdown((dropdown) => dropdown.addOption("outline", "\u67A0\u7DDA").addOption("bar", "\u5DE6\u7AEF\u306E\u30D0\u30FC").setValue(this.plugin.settings.activePaneHighlightStyle).onChange(async (value) => {
+      this.plugin.settings.activePaneHighlightStyle = value;
+      await this.plugin.saveSettingsAndRefresh();
+    }));
+    new import_obsidian.Setting(containerEl).setName("\u5F37\u8ABF\u8272").setDesc("\u3044\u305A\u308C\u3082Obsidian\u306E\u30C6\u30FC\u30DE\u5909\u6570\u3067\u3059\u3002\u30C6\u30FC\u30DE\u3068\u30E9\u30A4\u30C8/\u30C0\u30FC\u30AF\u306B\u8FFD\u5F93\u3057\u307E\u3059\u3002").addDropdown((dropdown) => {
+      for (const [value, { label }] of Object.entries(PANE_ACCENT_COLORS)) {
+        dropdown.addOption(value, label);
+      }
+      dropdown.setValue(this.plugin.settings.activePaneAccentColor).onChange(async (value) => {
+        this.plugin.settings.activePaneAccentColor = value;
+        await this.plugin.saveSettingsAndRefresh();
+      });
+    });
+    new import_obsidian.Setting(containerEl).setName("\u67A0\u7DDA\u306E\u592A\u3055").setDesc("\u300C\u67A0\u7DDA\u300D\u30B9\u30BF\u30A4\u30EB\u306E\u3068\u304D\u306E\u7DDA\u306E\u592A\u3055\uFF08px\uFF09\u3067\u3059\u3002").addSlider((slider) => slider.setLimits(1, 8, 1).setDynamicTooltip().setValue(this.plugin.settings.activePaneOutlineWidth).onChange(async (value) => {
+      this.plugin.settings.activePaneOutlineWidth = value;
+      await this.plugin.saveSettingsAndRefresh();
+    }));
+    new import_obsidian.Setting(containerEl).setName("\u5DE6\u7AEF\u306E\u30D0\u30FC\u306E\u592A\u3055").setDesc("\u300C\u5DE6\u7AEF\u306E\u30D0\u30FC\u300D\u30B9\u30BF\u30A4\u30EB\u306E\u3068\u304D\u306E\u30D0\u30FC\u306E\u592A\u3055\uFF08px\uFF09\u3067\u3059\u3002").addSlider((slider) => slider.setLimits(1, 16, 1).setDynamicTooltip().setValue(this.plugin.settings.activePaneBarWidth).onChange(async (value) => {
+      this.plugin.settings.activePaneBarWidth = value;
+      await this.plugin.saveSettingsAndRefresh();
+    }));
+    new import_obsidian.Setting(containerEl).setName("\u30AB\u30FC\u30BD\u30EB\u884C\u3092\u5F37\u8ABF").setDesc("\u30D5\u30A9\u30FC\u30AB\u30B9\u4E2D\u306E\u30A8\u30C7\u30A3\u30BF\u3067\u3001\u30AB\u30FC\u30BD\u30EB\u306E\u3042\u308B\u884C\u306B\u80CC\u666F\u8272\u3092\u4ED8\u3051\u307E\u3059\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.highlightActiveLine).onChange(async (value) => {
+      this.plugin.settings.highlightActiveLine = value;
+      await this.plugin.saveSettingsAndRefresh();
+    }));
+    new import_obsidian.Setting(containerEl).setName("\u5206\u5272\u3057\u3066\u3044\u308B\u3068\u304D\u3060\u3051\u5F37\u8ABF").setDesc("\u8868\u793A\u4E2D\u306E\u30A8\u30C7\u30A3\u30BF\u304C2\u3064\u4EE5\u4E0A\u306E\u3068\u304D\u3060\u3051\u3001\u4E0A\u306E\u5F37\u8ABF\u3092\u6709\u52B9\u306B\u3057\u307E\u3059\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.highlightOnlyWhenSplit).onChange(async (value) => {
+      this.plugin.settings.highlightOnlyWhenSplit = value;
+      await this.plugin.saveSettingsAndRefresh();
+    }));
     new import_obsidian.Setting(containerEl).setName("\u6587\u5B57\u6570\u30AB\u30A6\u30F3\u30C8").setHeading();
     new import_obsidian.Setting(containerEl).setName("\u6587\u5B57\u6570\u3092\u8868\u793A").setDesc("\u5358\u8A9E\u6570\u3067\u306F\u306A\u304F\u3001\u65E5\u672C\u8A9E\u5C0F\u8AAC\u5411\u3051\u306E\u6587\u5B57\u6570\u3092\u30B9\u30C6\u30FC\u30BF\u30B9\u30D0\u30FC\u306B\u8868\u793A\u3057\u307E\u3059\u3002").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableCharacterCount).onChange(async (value) => {
       this.plugin.settings.enableCharacterCount = value;
@@ -429,6 +482,11 @@ var JapaneseNovelToolSettingTab = class extends import_obsidian.PluginSettingTab
 };
 
 // src/main.ts
+var ACTIVE_PANE_CLASS = "jnt-active-leaf";
+function clampWidth(value, min, max, fallback) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
 var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
   constructor() {
     super(...arguments);
@@ -479,17 +537,25 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
       editorCallback: (editor) => copyHeadingSection(editor, false)
     });
     this.registerEvent(this.app.workspace.on("file-open", () => this.updateCharacterCount()));
-    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.updateCharacterCount()));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => {
+      this.updateCharacterCount();
+      this.updateActivePaneHighlight();
+    }));
+    this.registerEvent(this.app.workspace.on("layout-change", () => this.updateActivePaneHighlight()));
     this.registerEvent(this.app.workspace.on("editor-change", () => this.scheduleCharacterCountUpdate()));
     await this.refreshDisplays();
   }
   onunload() {
     document.body.style.removeProperty("--jnt-ruby-size");
+    document.body.style.removeProperty("--jnt-pane-accent");
+    document.body.style.removeProperty("--jnt-pane-outline-width");
+    document.body.style.removeProperty("--jnt-pane-bar-width");
     if (this.characterCountTimer !== null) {
       window.clearTimeout(this.characterCountTimer);
       this.characterCountTimer = null;
     }
     this.clearReadingViewCounts();
+    this.clearActivePaneHighlight();
   }
   async loadSettings() {
     const data = await this.loadData();
@@ -501,12 +567,24 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
     await this.refreshDisplays();
   }
   applyStyleSettings() {
+    var _a;
     const ratio = Number.isFinite(this.settings.rubySizeRatio) ? Math.min(1, Math.max(0.1, this.settings.rubySizeRatio)) : 0.5;
     document.body.style.setProperty("--jnt-ruby-size", `${ratio}em`);
+    const accent = (_a = PANE_ACCENT_COLORS[this.settings.activePaneAccentColor]) != null ? _a : PANE_ACCENT_COLORS.accent;
+    document.body.style.setProperty("--jnt-pane-accent", `var(${accent.variable})`);
+    document.body.style.setProperty(
+      "--jnt-pane-outline-width",
+      `${clampWidth(this.settings.activePaneOutlineWidth, 1, 8, 2)}px`
+    );
+    document.body.style.setProperty(
+      "--jnt-pane-bar-width",
+      `${clampWidth(this.settings.activePaneBarWidth, 1, 16, 4)}px`
+    );
   }
   async refreshDisplays() {
     this.headingSectionCache.clear();
     this.updateCharacterCount();
+    this.updateActivePaneHighlight();
     this.app.workspace.updateOptions();
     this.app.workspace.trigger("css-change");
   }
@@ -519,6 +597,52 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
       this.characterCountTimer = null;
       this.updateCharacterCount();
     }, 1e3);
+  }
+  /** 分割時にどのペインを編集しているかを示すため、アクティブなリーフにクラスを付ける。 */
+  updateActivePaneHighlight() {
+    const workspace = this.app.workspace;
+    const leaves = workspace.getLeavesOfType("markdown");
+    const visibleCount = leaves.filter((leaf) => leaf.getRoot() === workspace.rootSplit && leaf.view.containerEl.isShown()).length;
+    const enabled = !this.settings.highlightOnlyWhenSplit || visibleCount >= 2;
+    const activeView = enabled ? this.getActivePaneView() : null;
+    document.body.toggleClass(
+      "jnt-highlight-active-pane",
+      enabled && this.settings.highlightActivePane
+    );
+    document.body.toggleClass(
+      "jnt-highlight-pane-bar",
+      this.settings.activePaneHighlightStyle === "bar"
+    );
+    document.body.toggleClass(
+      "jnt-highlight-active-line",
+      enabled && this.settings.highlightActiveLine
+    );
+    for (const leaf of leaves) {
+      const isActive = leaf.getRoot() === workspace.rootSplit && leaf.view === activeView;
+      leaf.view.containerEl.toggleClass(ACTIVE_PANE_CLASS, isActive);
+    }
+  }
+  /**
+   * 強調対象のビューを返す。サイドバーや検索欄にフォーカスが移っても、
+   * 最後に編集していたペインを強調したままにする。
+   */
+  getActivePaneView() {
+    const workspace = this.app.workspace;
+    const active = workspace.getActiveViewOfType(import_obsidian2.MarkdownView);
+    if (active && active.leaf.getRoot() === workspace.rootSplit) return active;
+    const lastEditor = workspace.activeEditor;
+    if (lastEditor instanceof import_obsidian2.MarkdownView && lastEditor.leaf.getRoot() === workspace.rootSplit) {
+      return lastEditor;
+    }
+    return null;
+  }
+  clearActivePaneHighlight() {
+    document.body.removeClasses([
+      "jnt-highlight-active-pane",
+      "jnt-highlight-pane-bar",
+      "jnt-highlight-active-line"
+    ]);
+    this.app.workspace.iterateAllLeaves((leaf) => leaf.view.containerEl.removeClass(ACTIVE_PANE_CLASS));
   }
   updateCharacterCount() {
     if (!this.statusBarItem) return;
