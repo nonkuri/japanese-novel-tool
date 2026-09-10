@@ -19,17 +19,9 @@ prose is usually counted.
 
 ## Installation
 
-### Manual installation
-
-1. Create `.obsidian/plugins/japanese-novel-tool/` inside your vault.
-2. Download `main.js`, `manifest.json`, and `styles.css` from the
-   [latest release](https://github.com/nonkuri/japanese-novel-tool/releases/latest)
-   and place them in that folder.
-3. Reload Obsidian, then enable **Japanese Novel Tool** under
-   Settings → Community plugins.
-
-Once the plugin is listed in the community plugin directory, you will also be able
-to install it from Settings → Community plugins → Browse.
+1. Open **Settings → Community plugins** in Obsidian.
+2. Select **Browse** and search for **Japanese Novel Tool**.
+3. Select **Install**, then enable the plugin.
 
 ## Usage
 
@@ -132,9 +124,9 @@ Obsidianで日本語小説を書くための補助プラグインです。
 
 ## インストール
 
-1. Vault内に `.obsidian/plugins/japanese-novel-tool/` を作成します。
-2. `main.js`、`manifest.json`、`styles.css` をそのフォルダに配置します。
-3. Obsidianを起動し、コミュニティプラグインから `Japanese Novel Tool` を有効にします。
+1. Obsidianで「設定」→「コミュニティプラグイン」を開きます。
+2. 「閲覧」を選び、`Japanese Novel Tool` を検索します。
+3. 「インストール」を選び、プラグインを有効化します。
 
 ## 使い方
 
