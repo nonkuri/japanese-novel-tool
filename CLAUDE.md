@@ -17,6 +17,7 @@ Obsidian 用の日本語小説執筆補助プラグイン。字下げ表示、�
 
 ```bash
 npm run build   # tsc の型チェック + esbuild の production ビルド
+npm test        # 文字数カウントの回帰テスト
 npm run dev     # watch ビルド
 ```
 
@@ -30,12 +31,13 @@ npm run dev     # watch ビルド
 
 ## リリース手順
 
-1. バージョンを 3 ファイルで揃えて上げる
+1. バージョンを以下のファイルで揃えて上げる
    - `manifest.json` の `version`
    - `package.json` の `version`
+   - `package-lock.json` のトップレベルとルートパッケージの `version`
    - `versions.json` に `"<version>": "1.5.0"` を追記（値は `minAppVersion`）
 2. **`README.md` の「変更履歴」に新バージョンの項目を追加する。**挙動が変わった場合は機能説明の記述も更新する
-3. `npm run build`
+3. `npm test` と `npm run build`
 4. `main` ブランチに直接コミットする（タグがリリース対象のコミットを指す必要があるため、ブランチは切らない）。1〜3 の変更は同じコミットにまとめる
 5. タグを打って push する
 

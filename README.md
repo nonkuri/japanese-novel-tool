@@ -78,6 +78,9 @@ optionally next to each heading for the section it introduces. By default whites
 line breaks, ruby and emphasis control characters, Obsidian callouts, and Markdown
 comments are excluded from the count.
 
+When callout exclusion is enabled, editing a callout's title or body also leaves
+the per-heading count unchanged. Ordinary blockquotes are still counted.
+
 ## Settings
 
 The settings tab is grouped into five sections:
@@ -282,6 +285,8 @@ Obsidianのコマンドパレットから次のコマンドを使えます。
 
 見出し横のセクション文字数は、次の同じ階層または上位階層の見出しまでを対象にします。
 
+「ObsidianのCalloutを数えない」がオンの場合、Calloutのタイトルや本文を編集しても、見出し横の文字数には加算・減算されません。通常の引用ブロックはカウント対象です。
+
 ```markdown
 # 第一章
 
@@ -326,6 +331,11 @@ Obsidianのコマンドパレットから次のコマンドを使えます。
 
 
 ## 変更履歴
+
+### [0.1.10] - 2026-09-20
+
+- 「ObsidianのCalloutを数えない」がオンでも、Callout内の編集が見出し横の文字数に加算・減算される不具合を修正
+- Calloutのタイトル・本文の編集、除外設定のオン・オフ、通常の引用と本文のカウントを確認する回帰テストを追加
 
 ### [0.1.9] - 2026-08-30
 

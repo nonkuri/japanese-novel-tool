@@ -640,7 +640,11 @@ export default class JapaneseNovelToolPlugin extends Plugin {
       const changedText = update.view.state.doc.sliceString(fromB, toB);
       const line = update.view.state.doc.lineAt(fromB);
       const oldLine = update.startState.doc.lineAt(fromA);
-      shouldRebuild = /^\s{0,3}#{1,6}\s/.test(oldLine.text)
+      // 変更文字列だけでは、その行が Callout 内かどうかを判定できない。
+      // 引用行の編集はブロック全体の文脈を使って再集計する。
+      shouldRebuild = (this.settings.excludeCalloutsFromCount
+          && (/^[ \t]*>/.test(oldLine.text) || /^[ \t]*>/.test(line.text)))
+        || /^\s{0,3}#{1,6}\s/.test(oldLine.text)
         || /^#{1,6}\s/.test(line.text)
         || /\n\s{0,3}#{1,6}\s/.test(changedText)
         || /^[=-]+$/.test(oldLine.text.trim())

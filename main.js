@@ -1002,7 +1002,7 @@ var JapaneseNovelToolPlugin = class extends import_obsidian2.Plugin {
       const changedText = update.view.state.doc.sliceString(fromB, toB);
       const line = update.view.state.doc.lineAt(fromB);
       const oldLine = update.startState.doc.lineAt(fromA);
-      shouldRebuild = /^\s{0,3}#{1,6}\s/.test(oldLine.text) || /^#{1,6}\s/.test(line.text) || /\n\s{0,3}#{1,6}\s/.test(changedText) || /^[=-]+$/.test(oldLine.text.trim()) || /^[=-]+$/.test(line.text.trim());
+      shouldRebuild = this.settings.excludeCalloutsFromCount && (/^[ \t]*>/.test(oldLine.text) || /^[ \t]*>/.test(line.text)) || /^\s{0,3}#{1,6}\s/.test(oldLine.text) || /^#{1,6}\s/.test(line.text) || /\n\s{0,3}#{1,6}\s/.test(changedText) || /^[=-]+$/.test(oldLine.text.trim()) || /^[=-]+$/.test(line.text.trim());
     });
     return shouldRebuild;
   }
