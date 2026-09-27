@@ -52,3 +52,23 @@ npm run dev     # watch ビルド
    ```
 
 リリースノートは日本語で、「変更点」と「インストール」の見出し構成にする。インストールの案内は 3 ファイルを `.obsidian/plugins/japanese-novel-tool/` に配置する旨を書く。過去のリリースの本文を踏襲すること。
+
+7. GitHub Actions の `Attest release assets` が成功したことを確認する。
+   `.github/workflows/attest-release.yml` はリリース公開時に、タグのソースからテスト・ビルドし、添付された 3 ファイルとのバイト単位の一致を確認して GitHub artifact attestations を生成する。
+   不一致（改行コードの違いを含む）やファイル不足の場合は証明を生成せず失敗する。公開物を自動で上書きしないので、原因を確認する。
+
+既存リリースへ証明を追加する場合は、このワークフローをデフォルトブランチへ反映後、Actions の `Run workflow` で対象のタグを入力する。CLI では以下を実行できる。
+
+```bash
+gh workflow run attest-release.yml --ref main -f tag=0.1.10
+```
+
+ワークフローの成功後、ダウンロードした配布ファイルの証明は以下で確認できる。
+
+```bash
+gh attestation verify main.js --repo nonkuri/japanese-novel-tool
+gh attestation verify manifest.json --repo nonkuri/japanese-novel-tool
+gh attestation verify styles.css --repo nonkuri/japanese-novel-tool
+```
+
+証明の作成には GitHub Actions 上の実行が必要。ローカルでワークフローを追加しただけでは既存リリースのレビュー表示は変わらない。レビュー側でも再チェックが必要になる。
